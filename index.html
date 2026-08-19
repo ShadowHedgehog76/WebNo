@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>WebNo — UNO en peer-to-peer</title>
+<meta name="description" content="UNO multijoueur en pair-à-pair : jusqu'à 4 joueurs, règles maison, bots et table 3D." />
+<link rel="stylesheet" href="css/style.css" />
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='18' fill='%23111'/><ellipse cx='50' cy='50' rx='30' ry='42' fill='%23e4322b' transform='rotate(-20 50 50)'/><text x='50' y='64' font-size='40' font-family='Arial Black,sans-serif' fill='%23fff' text-anchor='middle' transform='rotate(-20 50 50)'>N</text></svg>" />
+</head>
+<body>
+
+<!-- ══════════════════════════ ACCUEIL ══════════════════════════ -->
+<section id="screen-home" class="screen active">
+  <div class="home-bg"></div>
+  <div class="home-card">
+    <h1 class="logo"><span class="logo-card c-red">W</span><span class="logo-card c-yellow">e</span><span class="logo-card c-green">b</span><span class="logo-card c-blue">N</span><span class="logo-card c-red">o</span></h1>
+    <p class="tagline">UNO en pair-à-pair — jusqu'à 4 joueurs, sans serveur.</p>
+
+    <label class="field">
+      <span>Votre pseudo</span>
+      <input id="input-name" type="text" maxlength="14" placeholder="Ex. Kaelig" autocomplete="nickname" />
+    </label>
+
+    <div class="home-actions">
+      <button id="btn-create" class="btn btn-primary btn-big">Créer une partie</button>
+      <div class="or"><span>ou</span></div>
+      <div class="join-row">
+        <input id="input-code" type="text" maxlength="5" placeholder="CODE" class="code-input" autocomplete="off" spellcheck="false" />
+        <button id="btn-join" class="btn btn-ghost">Rejoindre</button>
+      </div>
+    </div>
+
+    <p id="home-error" class="error" hidden></p>
+    <p class="hint">L'hôte règle la partie et distribue le code. La connexion est directe entre navigateurs (WebRTC).</p>
+  </div>
+</section>
+
+<!-- ══════════════════════════ SALON ══════════════════════════ -->
+<section id="screen-lobby" class="screen">
+  <div class="lobby-wrap">
+    <header class="lobby-head">
+      <div>
+        <h2>Salon</h2>
+        <p class="sub" id="lobby-role">Hôte</p>
+      </div>
+      <div class="code-box" id="code-box">
+        <span class="code-label">Code de la room</span>
+        <div class="code-value" id="code-value">-----</div>
+        <button class="btn btn-tiny" id="btn-copy">Copier le lien</button>
+      </div>
+    </header>
+
+    <div class="lobby-grid">
+      <div class="panel">
+        <h3>Joueurs <span class="count" id="player-count">1/4</span></h3>
+        <ul class="players" id="lobby-players"></ul>
+        <div class="row host-only">
+          <button class="btn btn-ghost" id="btn-add-bot">+ Ajouter un bot</button>
+          <button class="btn btn-ghost" id="btn-fill-bots">Remplir de bots</button>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h3>Paramètres</h3>
+        <div class="settings" id="settings">
+          <div class="set-group">
+            <span class="set-title">Mode de jeu</span>
+            <div class="seg" data-setting="mode">
+              <button data-value="solo" class="on">Chacun pour soi</button>
+              <button data-value="team">Équipes 2 v 2</button>
+            </div>
+          </div>
+
+          <div class="set-group">
+            <span class="set-title">Règles maison</span>
+            <label class="switch" data-setting="stacking"><input type="checkbox" checked /><span class="track"></span>
+              <span class="sw-text"><b>Accumulation</b><em>Empiler les +2 / +4 sur le joueur suivant</em></span></label>
+            <label class="switch" data-setting="sevenZero"><input type="checkbox" checked /><span class="track"></span>
+              <span class="sw-text"><b>7-0</b><em>7 : échange de main au choix — 0 : rotation générale</em></span></label>
+            <label class="switch" data-setting="jumpIn"><input type="checkbox" checked /><span class="track"></span>
+              <span class="sw-text"><b>À la volée</b><em>Poser une carte identique hors de son tour</em></span></label>
+            <label class="switch" data-setting="bluff"><input type="checkbox" /><span class="track"></span>
+              <span class="sw-text"><b>Bluff sur le +4</b><em>Désactivé : impossible de dénoncer un +4</em></span></label>
+            <label class="switch" data-setting="unoRule"><input type="checkbox" checked /><span class="track"></span>
+              <span class="sw-text"><b>Annonce « UNO »</b><em>Oubli dénonçable : +2 cartes</em></span></label>
+          </div>
+
+          <div class="set-group">
+            <span class="set-title">Victoire</span>
+            <div class="seg" data-setting="winCondition">
+              <button data-value="points" class="on">Au score</button>
+              <button data-value="single">Une seule manche</button>
+            </div>
+            <div class="seg small" data-setting="targetScore">
+              <button data-value="200">200 pts</button>
+              <button data-value="300">300 pts</button>
+              <button data-value="500" class="on">500 pts</button>
+            </div>
+          </div>
+
+          <div class="set-group">
+            <span class="set-title">Niveau des bots</span>
+            <div class="seg small" data-setting="botLevel">
+              <button data-value="easy">Facile</button>
+              <button data-value="normal" class="on">Normal</button>
+              <button data-value="hard">Difficile</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <footer class="lobby-foot">
+      <button class="btn btn-ghost" id="btn-lobby-leave">Quitter</button>
+      <p id="lobby-status" class="status"></p>
+      <button class="btn btn-primary btn-big host-only" id="btn-start">Lancer la partie</button>
+    </footer>
+  </div>
+</section>
+
+<!-- ══════════════════════════ JEU ══════════════════════════ -->
+<section id="screen-game" class="screen">
+  <header class="hud">
+    <div class="hud-group">
+      <span class="chip" id="hud-code">—</span>
+      <span class="chip" id="hud-round">Manche 1</span>
+      <span class="chip" id="hud-mode">Solo</span>
+    </div>
+    <div class="hud-group">
+      <button class="btn btn-tiny" id="btn-toggle-log">Journal</button>
+      <button class="btn btn-tiny danger" id="btn-quit">Quitter</button>
+    </div>
+  </header>
+
+  <div class="scene">
+    <div class="table3d" id="table3d">
+      <div class="felt"></div>
+      <div class="seat seat-left"   id="seat-left"></div>
+      <div class="seat seat-top"    id="seat-top"></div>
+      <div class="seat seat-right"  id="seat-right"></div>
+
+      <div class="center" id="center">
+        <div class="pile" id="deck-pile" title="Pioche">
+          <div class="card back"></div>
+          <div class="pile-count" id="deck-count">108</div>
+        </div>
+        <div class="pile discard" id="discard-pile"></div>
+      </div>
+      <div class="dir-ring" id="dir-ring"><span class="arrow a1">➤</span><span class="arrow a2">➤</span><span class="arrow a3">➤</span><span class="arrow a4">➤</span></div>
+      <div class="pending-badge" id="pending-badge" hidden></div>
+    </div>
+  </div>
+
+  <div class="myzone">
+    <div class="me-bar">
+      <span class="me-name" id="me-name">Vous</span>
+      <span class="me-team" id="me-team" hidden></span>
+      <span class="me-score" id="me-score">0 pt</span>
+      <span class="turn-flag" id="turn-flag" hidden>À vous de jouer</span>
+    </div>
+    <div class="hand" id="hand"></div>
+    <div class="actions">
+      <button class="btn action uno" id="btn-uno">UNO !</button>
+      <button class="btn action" id="btn-draw">Piocher</button>
+      <button class="btn action" id="btn-pass" hidden>Passer</button>
+      <button class="btn action warn" id="btn-challenge" hidden>Contester le +4</button>
+    </div>
+  </div>
+
+  <aside class="logpanel" id="logpanel" hidden><h4>Journal</h4><ul id="loglist"></ul></aside>
+  <div class="toasts" id="toasts"></div>
+</section>
+
+<!-- ══════════════════════════ OVERLAYS ══════════════════════════ -->
+<div class="overlay" id="overlay-color" hidden>
+  <div class="modal">
+    <h3>Choisissez une couleur</h3>
+    <div class="color-picker">
+      <button data-color="red"    class="col red"></button>
+      <button data-color="yellow" class="col yellow"></button>
+      <button data-color="green"  class="col green"></button>
+      <button data-color="blue"   class="col blue"></button>
+    </div>
+    <button class="btn btn-ghost btn-tiny" data-cancel>Annuler</button>
+  </div>
+</div>
+
+<div class="overlay" id="overlay-target" hidden>
+  <div class="modal">
+    <h3>Échanger votre main avec…</h3>
+    <div class="target-picker" id="target-picker"></div>
+    <button class="btn btn-ghost btn-tiny" data-cancel>Annuler</button>
+  </div>
+</div>
+
+<div class="overlay" id="overlay-round" hidden>
+  <div class="modal wide">
+    <h3 id="round-title">Fin de manche</h3>
+    <table class="scoreboard"><thead><tr><th>Joueur</th><th>Cartes</th><th>Points restants</th><th>Score</th></tr></thead><tbody id="round-body"></tbody></table>
+    <p class="modal-note" id="round-note"></p>
+    <div class="modal-actions">
+      <button class="btn btn-primary host-only" id="btn-next-round">Manche suivante</button>
+      <span class="waiting non-host">En attente de l'hôte…</span>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="overlay-game" hidden>
+  <div class="modal wide">
+    <div class="trophy">🏆</div>
+    <h3 id="game-title">Victoire !</h3>
+    <p class="winner-line" id="game-winner"></p>
+    <table class="scoreboard"><thead><tr><th>Joueur</th><th>Score final</th></tr></thead><tbody id="final-body"></tbody></table>
+    <div class="modal-actions">
+      <button class="btn btn-primary host-only" id="btn-rematch">Revanche</button>
+      <button class="btn btn-ghost" id="btn-home">Accueil</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="overlay-wait" hidden>
+  <div class="modal"><div class="spinner"></div><p id="wait-text">Connexion…</p></div>
+</div>
+
+<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+<script type="module" src="js/app.js"></script>
+</body>
+</html>
