@@ -209,8 +209,9 @@ export function renderLobby({ code, players, settings, isHost, maxPlayers = 4 },
   const note = $('mode-note');
   note.hidden = !party;
   if (party) {
-    note.textContent = 'Tournoi : l\'hôte observe. 16 joueurs, 4 tables de 4, '
-      + 'et les quatre vainqueurs s\'affrontent sur la table finale.';
+    const n = settings.tables || 4;
+    note.textContent = `Tournoi : l'hôte observe. ${n * 4} joueurs sur ${n} tables de 4 ; `
+      + `les ${n} vainqueurs s'affrontent sur la table finale, tout repart de zéro.`;
   }
   $('settings').classList.toggle('locked', !isHost);
   document.querySelector('.seg[data-setting="targetScore"]').style.opacity = settings.winCondition === 'points' ? '1' : '.35';
@@ -220,7 +221,7 @@ export function renderLobby({ code, players, settings, isHost, maxPlayers = 4 },
     let ok, why = '';
     if (party) {
       ok = players.length === maxPlayers;
-      if (!ok) why = 'Le tournoi exige 16 joueurs plus vous (remplissez la table de bots).';
+      if (!ok) why = `Le tournoi exige ${maxPlayers - 1} joueurs plus vous (remplissez la table de bots).`;
     } else if (settings.mode === 'team') {
       ok = players.length === 4;
       if (!ok) why = 'Le mode équipes exige exactement 4 joueurs (ajoutez des bots).';
@@ -464,13 +465,16 @@ function tourPlayers(list, host, state) {
 
 function renderTourGrid(t) {
   const grid = $('tour-grid');
+  grid.dataset.n = t.tables.length;
   if (grid.childElementCount !== t.tables.length) {
     grid.innerHTML = '';
     for (let i = 0; i < t.tables.length; i++) {
       const el = document.createElement('article');
-      el.className = 'tour-table';
-      el.innerHTML = '<h5></h5><div class="tt-body"><div class="tt-pile"></div>'
-        + '<ul class="tt-players"></ul></div><div class="tt-win" hidden></div>';
+      el.className = 'mini-table';
+      el.innerHTML = '<h5></h5><div class="mt-felt"><div class="mt-deck"><div class="card back"></div></div><div class="mt-pile"></div>'
+        + '<span class="mt-seat s0"></span><span class="mt-seat s1"></span>'
+        + '<span class="mt-seat s2"></span><span class="mt-seat s3"></span></div>'
+        + '<div class="tt-win" hidden></div>';
       grid.appendChild(el);
     }
   }
@@ -480,14 +484,26 @@ function renderTourGrid(t) {
     const q = t.qualified.find((x) => x.table === i);
     el.querySelector('h5').textContent = `Table ${i + 1}`;
     el.classList.toggle('over', !!q);
-    const pile = el.querySelector('.tt-pile');
-    pile.className = 'tt-pile glow-' + (tb.currentColor || 'red');
+
+    const pile = el.querySelector('.mt-pile');
+    pile.className = 'mt-pile glow-' + (tb.currentColor || 'red');
     if (tb.top && pile.dataset.card !== tb.top.id) {
       pile.dataset.card = tb.top.id;
       pile.innerHTML = '';
       pile.appendChild(cardEl(tb.top));
     }
-    tourPlayers(tb.players, el.querySelector('.tt-players'), { turnId: q ? null : tb.turnId });
+    // les quatre places, comme autour d'une vraie table
+    tb.players.forEach((p, k) => {
+      const seat = el.querySelector('.mt-seat.s' + k);
+      if (!seat) return;
+      seat.innerHTML = `<b>${p.name}</b><i>${p.handCount}</i>`;
+      seat.classList.toggle('now', !q && p.id === tb.turnId);
+      seat.classList.toggle('uno', p.handCount === 1);
+      seat.classList.toggle('out', p.handCount === 0);
+      seat.classList.toggle('off', !p.connected);
+      seat.classList.toggle('won', !!q && q.id === p.id);
+    });
+
     const win = el.querySelector('.tt-win');
     win.hidden = !q;
     if (q) win.textContent = `Qualifié : ${q.name}`;
@@ -544,6 +560,79 @@ function announcePhase(t) {
   clearTimeout(announcePhase.t);
   announcePhase.t = setTimeout(() => { b.hidden = true; b.classList.remove('show'); }, 2600);
 }
+
+/* ─────────────────── arbre du tournoi ─────────────────── */
+function bracketBox(t, i) {
+  const tb = t.tables[i];
+  const q = t.qualified.find((x) => x.table === i);
+  const el = document.createElement('div');
+  el.className = 'br-table' + (q ? ' done' : '');
+  const noms = (tb ? tb.players : []).map((p) => {
+    const gagnant = q && q.id === p.id;
+    return `<li class="${gagnant ? 'win' : (q ? 'lost' : '')}">${p.name}</li>`;
+  }).join('');
+  el.innerHTML = `<b>Table ${i + 1}</b><ul>${noms}</ul>`;
+  return el;
+}
+
+/** Trace les traits de l'arbre une fois les boîtes en place. */
+function drawBracketLines(t) {
+  const body = $('br-body'), svg = $('br-lines');
+  if (!body || !svg) return;
+  const base = body.getBoundingClientRect();
+  const mid = body.querySelector('.br-mid').getBoundingClientRect();
+  const cx = mid.left - base.left + mid.width / 2;
+  const cy = mid.top - base.top + mid.height / 2;
+  svg.setAttribute('viewBox', `0 0 ${Math.round(base.width)} ${Math.round(base.height)}`);
+  svg.setAttribute('width', Math.round(base.width));
+  svg.setAttribute('height', Math.round(base.height));
+  let d = '';
+  for (const side of ['br-left', 'br-right']) {
+    const col = $(side);
+    const boxes = [...col.children];
+    if (!boxes.length) continue;
+    const gauche = side === 'br-left';
+    const rects = boxes.map((b) => b.getBoundingClientRect());
+    const xBord = gauche
+      ? Math.max(...rects.map((r) => r.right)) - base.left
+      : Math.min(...rects.map((r) => r.left)) - base.left;
+    const xJoin = gauche ? xBord + 26 : xBord - 26;
+    const ys = rects.map((r) => r.top - base.top + r.height / 2);
+    for (const y of ys) d += `M${xBord} ${y}H${xJoin}`;
+    if (ys.length > 1) d += `M${xJoin} ${Math.min(...ys)}V${Math.max(...ys)}`;
+    const yMid = (Math.min(...ys) + Math.max(...ys)) / 2;
+    const xTrophee = gauche ? cx - mid.width / 2 - 4 : cx + mid.width / 2 + 4;
+    d += `M${xJoin} ${yMid}H${xTrophee}`;
+    if (Math.abs(yMid - cy) > 1) d += `M${xTrophee} ${yMid}V${cy}`;
+  }
+  svg.innerHTML = `<path d="${d}" fill="none" stroke="rgba(255,255,255,.32)" stroke-width="2.5" stroke-linecap="round"/>`;
+}
+
+export function showBracket(state) {
+  const t = state && state.tournament;
+  if (!t) return;
+  const gauche = $('br-left'), droite = $('br-right');
+  gauche.innerHTML = ''; droite.innerHTML = '';
+  const n = t.tables.length;
+  const coupe = Math.ceil(n / 2);
+  for (let i = 0; i < n; i++) {
+    (i < coupe ? gauche : droite).appendChild(bracketBox(t, i));
+  }
+  $('br-title').textContent = t.phase === 'done' ? 'Tournoi terminé' : 'Arbre du tournoi';
+  const champ = $('br-champ');
+  if (t.champion) champ.innerHTML = `<b>${t.champion.name}</b><em>champion</em>`;
+  else if (t.phase === 'final') champ.innerHTML = `<b>Table finale</b><em>${t.qualified.map((q) => q.name).join(' · ')}</em>`;
+  else champ.innerHTML = `<b>Table finale</b><em>${t.qualified.length}/${n} qualifiés</em>`;
+  champ.classList.toggle('crowned', !!t.champion);
+  $('overlay-bracket').hidden = false;
+  // les traits se calculent une fois les boîtes mesurables
+  const apres = (fn) => (typeof window !== 'undefined' && window.requestAnimationFrame)
+    ? window.requestAnimationFrame(fn) : setTimeout(fn, 16);
+  apres(() => { try { drawBracketLines(t); } catch (_) {} });
+}
+
+export function hideBracket() { $('overlay-bracket').hidden = true; }
+export function bracketVisible() { return !$('overlay-bracket').hidden; }
 
 export function renderTournament(state) {
   const t = state.tournament;

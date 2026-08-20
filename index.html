@@ -149,8 +149,12 @@
 
           <div class="set-group" id="party-opts" hidden>
             <span class="set-title">Tournoi</span>
-            <p class="set-note">16 joueurs, 4 tables de 4. Le vainqueur de chaque table monte
-              sur la table finale, où tout repart de zéro.</p>
+            <div class="seg small" data-setting="tables">
+              <button data-value="2">2 tables</button>
+              <button data-value="3">3 tables</button>
+              <button data-value="4" class="on">4 tables</button>
+            </div>
+            <p class="set-note" id="party-note"></p>
             <button class="btn btn-ghost btn-tiny host-only" id="btn-shuffle-groups">Retirer au sort les tables</button>
           </div>
 
@@ -196,6 +200,7 @@
       <span class="chip" id="hud-mode">Solo</span>
     </div>
     <div class="hud-group">
+      <button class="btn btn-tiny party-only" id="btn-bracket" title="Arbre du tournoi (B)">Arbre</button>
       <button class="btn btn-tiny" id="btn-help" title="Raccourcis clavier (?)">Raccourcis</button>
       <button class="btn btn-tiny danger" id="btn-quit">Quitter</button>
     </div>
@@ -320,6 +325,22 @@
   </div>
 </div>
 
+<div class="overlay" id="overlay-bracket" hidden>
+  <div class="modal bracket">
+    <h3 id="br-title">Arbre du tournoi</h3>
+    <div class="br-body" id="br-body">
+      <svg class="br-lines" id="br-lines" aria-hidden="true"></svg>
+      <div class="br-col" id="br-left"></div>
+      <div class="br-mid">
+        <div class="br-trophy">🏆</div>
+        <div class="br-champ" id="br-champ">Table finale</div>
+      </div>
+      <div class="br-col" id="br-right"></div>
+    </div>
+    <button class="btn btn-ghost btn-tiny" data-cancel>Fermer</button>
+  </div>
+</div>
+
 <div class="overlay" id="overlay-scan" hidden>
   <div class="modal">
     <h3>Scannez le QR code de l'hôte</h3>
@@ -351,6 +372,7 @@
       <li><kbd>1</kbd>…<kbd>4</kbd><span>Choisir la couleur, ou le joueur du 7</span></li>
       <li><kbd>Échap</kbd><span>Annuler le choix en cours</span></li>
       <li><kbd>M</kbd><span>Couper ou rétablir le son</span></li>
+      <li><kbd>B</kbd><span>Afficher l'arbre du tournoi (mode party)</span></li>
       <li><kbd>?</kbd><span>Ouvrir cette liste</span></li>
     </ul>
     <div class="modal-actions"><button class="btn btn-ghost" data-cancel>Fermer</button></div>

@@ -14,6 +14,7 @@ export const DEFAULT_SETTINGS = {
   unoRule: true,           // Obligation de dire UNO
   winCondition: 'points',  // 'points' | 'single'
   targetScore: 500,
+  tables: 4,               // mode party : nombre de tables de qualification
   botLevel: 'normal',      // 'easy' | 'normal' | 'hard'
   startCards: 7,
 };

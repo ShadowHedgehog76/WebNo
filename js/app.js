@@ -1,6 +1,6 @@
 // app.js — orchestration : accueil, salon, boucle hôte (moteur + IA), client
 import { UnoGame, DEFAULT_SETTINGS } from './engine.js';
-import { Tournament, TOURNAMENT_SIZE } from './tournament.js';
+import { Tournament, tournamentSize, DEFAULT_TABLES } from './tournament.js';
 import { botDecide, botJumpIn, botCallout, botDelay, botProfile } from './bot.js';
 import { HostNet, ClientNet, normalizeCode, codeFromScan } from './net.js';
 import { isWild } from './deck.js';
@@ -14,7 +14,7 @@ const BOT_NAMES = ['Léa', 'Max', 'Zoé', 'Nino', 'Iris', 'Sacha', 'Milo', 'Nora
 
 /** Places disponibles : en party l'hôte observe, il occupe une place en plus. */
 function maxPlayers(settings) {
-  return settings.mode === 'party' ? TOURNAMENT_SIZE + 1 : 4;
+  return settings.mode === 'party' ? tournamentSize(settings.tables || DEFAULT_TABLES) + 1 : 4;
 }
 const HOST_ID = 'p0';
 
@@ -148,7 +148,16 @@ class Host {
 
   setSetting(key, value) {
     this.settings[key] = value;
-    if (key === 'mode' && value !== 'party') {
+    if ((key === 'mode' || key === 'tables')) {
+      // le nombre de places change : on renvoie les joueurs en trop
+      const cap = maxPlayers(this.settings);
+      while (this.players.length > cap) {
+        const last = this.players[this.players.length - 1];
+        if (last.peerId) this.net.kick(last.peerId);
+        this.players.pop();
+      }
+    }
+    if (false) {
       // on repasse à quatre places : les surnuméraires quittent la room
       while (this.players.length > 4) {
         const last = this.players[this.players.length - 1];
@@ -514,6 +523,19 @@ function applyState(s) {
   if (prev && prev.turnId !== s.turnId && s.turnId === s.you && s.phase === 'playing') audio.sfx('turn');
   App.lastLogAt = s.log.length ? s.log[s.log.length - 1].t : App.lastLogAt;
 
+  // l'arbre s'ouvre tout seul quand le tournoi change d'étape
+  const ph = s.tournament ? s.tournament.phase : null;
+  if (ph && ph !== App.tourPhase) {
+    const premier = App.tourPhase === undefined;
+    App.tourPhase = ph;
+    if (!premier || ph === 'qualif') {
+      ui.showBracket(s);
+      clearTimeout(App.brTimer);
+      App.brTimer = setTimeout(() => ui.hideBracket(), ph === 'done' ? 7000 : 4500);
+    }
+  }
+  if (!s.tournament) App.tourPhase = undefined;
+
   if (!prev || prev.roundNo !== s.roundNo) App.armedUno = false;
   if (s.hand.length !== 2) App.armedUno = false;
 
@@ -663,7 +685,7 @@ function wireLobby() {
       if (!b || !App.host) return;
       const key = seg.dataset.setting;
       let val = b.dataset.value;
-      if (key === 'targetScore') val = Number(val);
+      if (key === 'targetScore' || key === 'tables') val = Number(val);
       App.host.setSetting(key, val);
     });
   }
@@ -750,6 +772,8 @@ function wireGame() {
   $('btn-rematch').onclick = () => App.host && App.host.rematch();
   $('btn-home').onclick = () => leave();
 
+  $('btn-bracket').onclick = () => { ui.bracketVisible() ? ui.hideBracket() : ui.showBracket(App.view); };
+  $('overlay-bracket').querySelector('[data-cancel]').onclick = () => ui.hideBracket();
   $('btn-help').onclick = () => { $('overlay-help').hidden = !$('overlay-help').hidden; };
   $('overlay-help').querySelector('[data-cancel]').onclick = () => { $('overlay-help').hidden = true; };
   wireKeyboard();
@@ -858,7 +882,7 @@ function wireKeyboard() {
       e.preventDefault(); return;
     }
     if (k === 'Escape') {
-      for (const id of ['overlay-help', 'overlay-scan', 'overlay-qr', 'overlay-color', 'overlay-target']) {
+      for (const id of ['overlay-help', 'overlay-bracket', 'overlay-scan', 'overlay-qr', 'overlay-color', 'overlay-target']) {
         const ov = $(id);
         if (!ov.hidden) { const c = ov.querySelector('[data-cancel]'); if (c) c.click(); e.preventDefault(); return; }
       }
@@ -891,6 +915,11 @@ function wireKeyboard() {
       case 'd': case 'D': press('btn-draw'); break;
       case 'p': case 'P': press('btn-pass'); break;
       case 'u': case 'U': press('btn-uno'); break;
+      case 'b': case 'B':
+        if (App.view && App.view.tournament) {
+          ui.bracketVisible() ? ui.hideBracket() : ui.showBracket(App.view);
+        }
+        break;
       case 'c': case 'C': {
         const t = App.view.calloutTargets;
         if (t && t.length) send({ type: 'callout', targetId: t[0] });
@@ -934,6 +963,7 @@ function boot() {
 
   window.__webno = App;   // point d'accès pour le débogage / les tests
   window.__apply = applyState;
+  window.__ui = ui;
 
   // rejoindre directement via #CODE
   // arrivée par un lien d'invitation ou un QR scanné avec l'appareil photo

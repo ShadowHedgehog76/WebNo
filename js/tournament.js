@@ -3,15 +3,21 @@
 // vainqueur de chaque table monte sur la table finale, où tout repart de zéro.
 import { UnoGame } from './engine.js';
 
-export const TABLE_COUNT = 4;
 export const SEATS_PER_TABLE = 4;
-export const TOURNAMENT_SIZE = TABLE_COUNT * SEATS_PER_TABLE;
+export const TABLE_CHOICES = [2, 3, 4];
+export const DEFAULT_TABLES = 4;
+
+/** Nombre de joueurs d'un tournoi, hôte non compris. */
+export function tournamentSize(tables = DEFAULT_TABLES) {
+  return tables * SEATS_PER_TABLE;
+}
 
 export class Tournament {
   /** @param roster [{id, name, isBot}] — seize joueurs, l'hôte non compris */
   constructor(roster, settings) {
     this.settings = { ...settings };
-    this.roster = roster.slice(0, TOURNAMENT_SIZE);
+    this.tableCount = TABLE_CHOICES.includes(settings.tables) ? settings.tables : DEFAULT_TABLES;
+    this.roster = roster.slice(0, tournamentSize(this.tableCount));
     this.phase = 'qualif';        // qualif | final | done
     this.tables = [];
     this.final = null;
@@ -39,7 +45,7 @@ export class Tournament {
 
   start() {
     this.tables = [];
-    for (let t = 0; t < TABLE_COUNT; t++) {
+    for (let t = 0; t < this.tableCount; t++) {
       const seats = this.roster.slice(t * SEATS_PER_TABLE, (t + 1) * SEATS_PER_TABLE);
       const g = new UnoGame(seats.map((p) => ({ ...p, connected: true })), this.tableRules(false));
       g.startRound();
@@ -49,7 +55,7 @@ export class Tournament {
     this.qualified = [];
     this.final = null;
     this.champion = null;
-    this.say(`Qualifications : ${TABLE_COUNT} tables de ${SEATS_PER_TABLE} joueurs.`);
+    this.say(`Qualifications : ${this.tableCount} tables de ${SEATS_PER_TABLE} joueurs.`);
     this.version++;
     return this;
   }
@@ -68,7 +74,7 @@ export class Tournament {
   games() { return this.phase === 'final' ? (this.final ? [this.final] : []) : this.tables; }
 
   tableIndexOf(playerId) {
-    if (this.phase !== 'qualif') return this.final && this.final.byId(playerId) ? TABLE_COUNT : -1;
+    if (this.phase !== 'qualif') return this.final && this.final.byId(playerId) ? this.tableCount : -1;
     return this.tables.findIndex((g) => g.byId(playerId));
   }
 
@@ -102,7 +108,7 @@ export class Tournament {
         this.qualified.push({ id: winner.id, name: winner.name, table: i });
         this.say(`${winner.name} remporte la table ${i + 1} et se qualifie.`);
       }
-      if (this.qualified.length === TABLE_COUNT) this.openFinal();
+      if (this.qualified.length === this.tableCount) this.openFinal();
     } else if (this.phase === 'final' && this.final && this.final.phase === 'gameEnd') {
       const champ = this.final.players.find((p) => p.id === this.final.gameResult.playerId);
       this.champion = { id: champ.id, name: champ.name, score: champ.score };
@@ -159,7 +165,8 @@ export class Tournament {
       qualified: this.qualified.slice(),
       champion: this.champion,
       tables: this.tables.map((g, i) => this.tableSummary(g, i)),
-      final: this.tableSummary(this.final, TABLE_COUNT),
+      tableCount: this.tableCount,
+      final: this.tableSummary(this.final, this.tableCount),
       log: this.log.slice(-20),
     };
   }

@@ -15,12 +15,14 @@ les navigateurs se parlent directement en WebRTC (via [PeerJS](https://peerjs.co
   automatiquement différenciés.
 - **Bots** : l'hôte complète les places libres d'un clic. Trois niveaux (facile / normal / difficile).
   Un joueur qui se déconnecte est immédiatement repris par un bot, la partie continue.
-- **Mode party — un tournoi** : 16 joueurs répartis sur 4 tables de 4, qui jouent **en parallèle**.
-  Le vainqueur de chaque table monte sur la **table finale**, où tout repart de zéro comme dans une
-  partie classique ; le gagnant de cette finale remporte le tournoi. L'hôte n'y joue pas : il
-  **observe** le tableau des quatre tables sur son écran, puis la table finale en grand. Les
-  qualifications se jouent en une manche pour tenir le rythme, la finale suit votre réglage de
-  victoire. Les tables peuvent être tirées au sort.
+- **Mode party — un tournoi** : **2, 3 ou 4 tables** de 4 joueurs (8 à 16 participants) qui jouent
+  **en parallèle**. Le vainqueur de chaque table monte sur la **table finale**, où tout repart de
+  zéro comme dans une partie classique ; le gagnant de cette finale remporte le tournoi.
+  L'hôte n'y joue pas : il **observe**. Son écran montre les tables côte à côte — de vrais plateaux
+  avec pioche, défausse et joueurs tout autour — puis la table finale en grand. Un **arbre de
+  tournoi** s'ouvre à chaque étape (touche `B` pour le rappeler) et couronne le champion.
+  Les qualifications se jouent en une manche pour tenir le rythme, la finale suit votre réglage
+  de victoire. Les tables peuvent être tirées au sort.
 - **Deux autres modes** : *chacun pour soi*, ou *équipes 2 v 2* (les places 1-3 contre les places 2-4,
   l'hôte peut permuter les joueurs avec le bouton ⇅). En équipes, **les coéquipiers jouent à
   cartes ouvertes** : la main de votre partenaire s'affiche triée sur sa plaque.
