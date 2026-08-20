@@ -4,6 +4,7 @@ import { botDecide, botJumpIn, botCallout, botDelay, botProfile } from './bot.js
 import { HostNet, ClientNet, normalizeCode } from './net.js';
 import { isWild } from './deck.js';
 import * as ui from './ui.js';
+import * as audio from './audio.js';
 
 const $ = (id) => document.getElementById(id);
 const MAX_PLAYERS = 4;
@@ -55,6 +56,7 @@ class Host {
       if (this.players.length >= MAX_PLAYERS) { this.net.send(peerId, { t: 'error', msg: 'La room est complète.', fatal: true }); return; }
       const name = sanitizeName(msg.name, this.players.map((p) => p.name));
       this.players.push({ id: this.newId(), name, isHost: false, isBot: false, peerId });
+      audio.sfx('join');
       ui.toast(`${name} rejoint la partie`);
       this.syncLobby();
       return;
@@ -148,6 +150,8 @@ class Host {
 
   broadcastStart() {
     for (const p of this.players) if (p.peerId) this.net.send(p.peerId, { t: 'started' });
+    audio.playMusic('game');
+    audio.sfx('shuffle');
     ui.showScreen('game');
     $('hud-code').textContent = 'Room ' + this.code;
   }
@@ -157,6 +161,8 @@ class Host {
     this.game.startRound();
     this.unoSince.clear();
     this.jumpTried.clear();
+    audio.playMusic('game');
+    audio.sfx('shuffle');
     ui.resetGameView();
     for (const p of this.players) if (p.peerId) this.net.send(p.peerId, { t: 'newRound' });
     ui.hideRoundEnd();
@@ -246,7 +252,7 @@ class Host {
   localAction(action) {
     if (!this.game) return;
     const res = this.game.handle(HOST_ID, action);
-    if (!res.ok) ui.toast(res.error, 'bad');
+    if (!res.ok) { ui.toast(res.error, 'bad'); audio.sfx('error'); }
     this.afterChange();
   }
 
@@ -284,11 +290,15 @@ class Guest {
         ui.setWaiting(null);
         break;
       case 'started':
+        audio.playMusic('game');
+        audio.sfx('shuffle');
         ui.resetGameView();
         ui.showScreen('game');
         $('hud-code').textContent = 'Room ' + this.code;
         break;
       case 'newRound':
+        audio.playMusic('game');
+        audio.sfx('shuffle');
         ui.resetGameView();
         ui.hideRoundEnd();
         ui.hideGameOver();
@@ -298,6 +308,7 @@ class Guest {
         break;
       case 'error':
         ui.toast(msg.msg, 'bad');
+        audio.sfx('error');
         ui.setWaiting(null);
         if (msg.fatal) setTimeout(() => location.reload(), 2400);
         break;
@@ -334,18 +345,28 @@ const TOASTABLE = {
   jump: '', challenge: 'warn', win: 'big', gameover: 'big', effect: '',
 };
 
+// un bruitage par type d'évènement du journal
+const EVENT_SFX = {
+  play: 'play', draw: 'draw', penalty: 'penalty', callout: 'penalty',
+  uno: 'uno', swap: 'swap', rotate: 'rotate', jump: 'jump',
+  challenge: 'penalty', round: 'shuffle', win: 'win',
+};
+
 function applyState(s) {
   const prev = App.view;
   App.view = s;
   App.myId = s.you;
 
-  // notifications sur les nouveaux évènements
+  // notifications et bruitages sur les nouveaux évènements
+  let delay = 0;
   for (const e of s.log) {
     if (e.t <= App.lastLogAt) continue;
     if (e.type in TOASTABLE && ['uno', 'callout', 'penalty', 'swap', 'rotate', 'jump', 'challenge', 'win'].includes(e.type)) {
       ui.toast(e.text, TOASTABLE[e.type]);
     }
+    if (EVENT_SFX[e.type]) { audio.sfx(EVENT_SFX[e.type], delay); delay += 0.06; }
   }
+  if (prev && prev.turnId !== s.turnId && s.turnId === s.you && s.phase === 'playing') audio.sfx('turn');
   App.lastLogAt = s.log.length ? s.log[s.log.length - 1].t : App.lastLogAt;
 
   if (!prev || prev.roundNo !== s.roundNo) App.armedUno = false;
@@ -357,9 +378,22 @@ function applyState(s) {
   });
   $('btn-uno').classList.toggle('armed', App.armedUno);
 
-  if (s.phase === 'gameEnd') ui.showGameOver(s);
-  else if (s.phase === 'roundEnd') ui.showRoundEnd(s);
-  else { ui.hideRoundEnd(); }
+  if (s.phase === 'gameEnd') {
+    ui.showGameOver(s);
+    if (!prev || prev.phase !== 'gameEnd') {
+      const me = s.players.find((p) => p.id === s.you);
+      const g = s.gameResult;
+      const iWon = g && (g.type === 'team' ? me && me.team === g.team : g.playerId === s.you);
+      audio.stopMusic();
+      audio.sfx(iWon ? 'win' : 'lose');
+      if (iWon) ui.confetti(110);
+      setTimeout(() => audio.playMusic('menu'), 3200);
+    }
+  } else if (s.phase === 'roundEnd') {
+    ui.showRoundEnd(s);
+  } else {
+    ui.hideRoundEnd();
+  }
 }
 
 function send(action) {
@@ -371,7 +405,7 @@ async function onCardClick(card) {
   const s = App.view;
   if (!s || App.busy) return;
   if (!s.legal.includes(card.id)) {
-    if (s.turnId === s.you && s.phase === 'playing') ui.toast('Cette carte n\'est pas jouable.', 'warn');
+    if (s.turnId === s.you && s.phase === 'playing') { ui.toast('Cette carte n\'est pas jouable.', 'warn'); audio.sfx('error'); }
     return;
   }
   App.busy = true;
@@ -380,6 +414,7 @@ async function onCardClick(card) {
     if (isWild(card)) {
       const color = await ui.pickColor();
       if (!color) return;
+      audio.sfx('color');
       action.color = color;
     }
     if (s.settings.sevenZero && card.value === '7' && s.players.length > 1) {
@@ -481,6 +516,58 @@ function wireLobby() {
   }
 }
 
+function wireSound() {
+  const btn = $('btn-sound'), panel = $('sound-panel');
+  const vm = $('vol-music'), vs = $('vol-sfx'), mute = $('btn-mute');
+  const v = audio.volumes();
+  vm.value = Math.round(v.music * 100);
+  vs.value = Math.round(v.sfx * 100);
+
+  const refresh = () => {
+    const cur = audio.volumes();
+    document.body.classList.toggle('muted', cur.music === 0 && cur.sfx === 0);
+    mute.textContent = (cur.music === 0 && cur.sfx === 0) ? 'Rétablir le son' : 'Couper le son';
+  };
+  refresh();
+
+  btn.onclick = (e) => { e.stopPropagation(); panel.hidden = !panel.hidden; };
+  vm.oninput = () => { audio.setMusicVolume(vm.value / 100); refresh(); };
+  vs.oninput = () => { audio.setSfxVolume(vs.value / 100); refresh(); };
+  vs.onchange = () => audio.sfx('click');
+  mute.onclick = () => {
+    const cur = audio.volumes();
+    if (cur.music === 0 && cur.sfx === 0) {
+      audio.setMusicVolume(0.45); audio.setSfxVolume(0.7);
+    } else {
+      App.lastVol = cur;
+      audio.setMusicVolume(0); audio.setSfxVolume(0);
+    }
+    const nv = audio.volumes();
+    vm.value = Math.round(nv.music * 100);
+    vs.value = Math.round(nv.sfx * 100);
+    refresh();
+  };
+  document.addEventListener('click', (e) => {
+    if (!panel.hidden && !e.target.closest('.sound-dock')) panel.hidden = true;
+  });
+
+  // le son ne peut démarrer qu'après une interaction : on saisit la première
+  const start = () => {
+    audio.unlock();
+    if (!$('screen-game').classList.contains('active')) audio.playMusic('menu');
+    document.removeEventListener('pointerdown', start);
+    document.removeEventListener('keydown', start);
+  };
+  document.addEventListener('pointerdown', start);
+  document.addEventListener('keydown', start);
+
+  // clic générique sur les boutons (hors sélecteur de couleur, qui a son son)
+  document.addEventListener('click', (e) => {
+    const b = e.target.closest('button');
+    if (b && !b.closest('#overlay-color') && !b.disabled) audio.sfx('click');
+  }, true);
+}
+
 function wireGame() {
   $('btn-draw').onclick = () => send({ type: 'draw' });
   $('deck-pile').onclick = () => {
@@ -537,6 +624,7 @@ function boot() {
   wireHome();
   wireLobby();
   wireGame();
+  wireSound();
   ui.showScreen('home');
 
   window.__webno = App;   // point d'accès pour le débogage / les tests

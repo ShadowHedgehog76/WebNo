@@ -16,6 +16,11 @@ les navigateurs se parlent directement en WebRTC (via [PeerJS](https://peerjs.co
   l'hôte peut permuter les joueurs avec le bouton ⇅).
 - **Victoire** : au score (200 / 300 / 500 points, décompte UNO classique) ou en une seule manche.
 - **Table en 3D légère** (perspective CSS), cartes dessinées entièrement en CSS, aucune image.
+- **Habillage** aux couleurs officielles du jeu, décor animé (halos, cartes dérivantes, grain),
+  liseré de table qui prend la couleur en cours, confettis de victoire.
+- **Son** : musique de menu, musique de table et une quinzaine de bruitages, **entièrement
+  synthétisés au Web Audio** — aucun fichier audio, aucune licence, rien à télécharger.
+  Réglages Musique / Effets dans la console en haut à droite, mémorisés d'une session à l'autre.
 
 ## Les règles maison (réglables par l'hôte)
 
@@ -41,6 +46,9 @@ Le jeu sera servi sur `https://<votre-compte>.github.io/<votre-repo>/`.
 
 > HTTPS est indispensable au WebRTC — GitHub Pages le fournit d'office.
 
+Les polices *Archivo Black* et *Outfit* sont chargées depuis Google Fonts ; sans réseau, le jeu
+retombe sur les polices système sans rien casser.
+
 ## Jouer en local
 
 Il faut un serveur HTTP (les modules ES ne se chargent pas en `file://`) :
@@ -59,6 +67,7 @@ autres, et toute action est revalidée par l'hôte.
 ```
 index.html          écrans : accueil, salon, table, overlays
 css/style.css       thème, cartes CSS, table 3D, responsive
+js/audio.js         synthèse des musiques et bruitages (Web Audio)
 js/deck.js          modèle de cartes, paquet de 108, points
 js/engine.js        moteur autoritaire : règles, tours, manches, scores
 js/bot.js           IA des joueurs virtuels (heuristiques + niveaux)

@@ -2,7 +2,15 @@
 import { COLOR_LABEL, isWild } from './deck.js';
 
 const $ = (id) => document.getElementById(id);
-const GLYPH = { skip: '⊘', reverse: '⇄', draw2: '+2', wild4: '+4', wild: '' };
+const GLYPH = { draw2: '+2', wild4: '+4', wild: '' };
+const COLOR_HEX = { red: '#ED1C24', yellow: '#FFDE17', green: '#00A651', blue: '#0072BC' };
+
+// Symboles dessinés plutôt que typographiés : ils restent nets à toute taille
+const SYMBOL = {
+  skip: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round"><circle cx="12" cy="12" r="8.4"/><line x1="6.1" y1="17.9" x2="17.9" y2="6.1"/></svg>',
+  reverse: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M7 22.2 2.2 14.6h2.9V3.4h3.8v11.2h2.9z"/><path d="M17 1.8l4.8 7.6h-2.9v11.2h-3.8V9.4h-2.9z"/></svg>',
+};
+const WHEEL = '<span class="cw"></span>';
 
 /* ───────────────────────────── écrans ───────────────────────────── */
 export function showScreen(name) {
@@ -46,10 +54,13 @@ export function cardEl(card, opts = {}) {
 
   if (card.value === 'wild') {
     glyph.classList.add('wheel');
+  } else if (SYMBOL[card.value]) {
+    glyph.innerHTML = SYMBOL[card.value];
+    glyph.classList.add('sm');
   } else {
     const g = GLYPH[card.value] ?? card.value;
     glyph.textContent = g;
-    if (g.length > 1 || card.value === 'skip' || card.value === 'reverse') glyph.classList.add('sm');
+    if (g.length > 1) glyph.classList.add('sm');
   }
   oval.appendChild(glyph);
   inner.appendChild(oval);
@@ -58,7 +69,9 @@ export function cardEl(card, opts = {}) {
   for (const pos of ['tl', 'br']) {
     const c = document.createElement('span');
     c.className = 'corner ' + pos;
-    c.textContent = card.value === 'wild' ? '★' : (GLYPH[card.value] ?? card.value);
+    if (card.value === 'wild') c.innerHTML = WHEEL;
+    else if (SYMBOL[card.value]) c.innerHTML = SYMBOL[card.value];
+    else c.textContent = GLYPH[card.value] ?? card.value;
     d.appendChild(c);
   }
 
@@ -71,7 +84,7 @@ export function cardEl(card, opts = {}) {
 }
 
 /* ───────────────────────────── salon ───────────────────────────── */
-const AV_COLORS = ['#e0332c', '#2670d8', '#2fa84f', '#f5b512'];
+const AV_COLORS = ['#ED1C24', '#0072BC', '#00A651', '#FFDE17'];
 
 export function renderLobby({ code, players, settings, isHost, maxPlayers = 4 }, handlers = {}) {
   $('code-value').textContent = code || '-----';
@@ -87,6 +100,7 @@ export function renderLobby({ code, players, settings, isHost, maxPlayers = 4 },
     const av = document.createElement('span');
     av.className = 'avatar';
     av.style.background = AV_COLORS[i % 4];
+    av.style.color = i % 4 === 3 ? '#2E2400' : '#fff';
     av.textContent = (p.name || '?').slice(0, 1).toUpperCase();
     li.appendChild(av);
 
@@ -180,7 +194,7 @@ function renderOpponent(slot, p, state, handlers) {
   if (!box) {
     box = document.createElement('div');
     box.className = 'player-box';
-    box.innerHTML = '<div class="pb-head"><span class="pb-name"></span></div>'
+    box.innerHTML = '<div class="pb-head"><span class="pb-avatar"></span><span class="pb-name"></span></div>'
       + '<div class="mini-hand"></div><div class="pb-meta"></div>';
     box.style.position = 'relative';
     host.appendChild(box);
@@ -190,6 +204,11 @@ function renderOpponent(slot, p, state, handlers) {
   box.classList.toggle('active', state.turnId === p.id);
   box.classList.toggle('ally', ally);
   box.querySelector('.pb-name').textContent = p.name;
+  box.classList.toggle('offline', !p.connected);
+  const av = box.querySelector('.pb-avatar');
+  av.textContent = (p.name || '?').slice(0, 1).toUpperCase();
+  av.style.background = AV_COLORS[p.seat % 4];
+  av.style.color = p.seat % 4 === 3 ? '#2E2400' : '#fff';
 
   const mini = box.querySelector('.mini-hand');
   const shown = Math.min(p.handCount, 8);
@@ -306,6 +325,8 @@ export function renderGame(state, handlers = {}) {
   $('deck-count').textContent = state.deckCount;
   $('deck-pile').classList.toggle('can-draw', state.canDraw || (state.pendingDraw > 0 && state.turnId === state.you));
   $('dir-ring').classList.toggle('ccw', state.direction === -1);
+  const table = $('table3d');
+  if (table) table.style.setProperty('--play-color', COLOR_HEX[state.currentColor] || 'rgba(255,255,255,.2)');
 
   const pb = $('pending-badge');
   if (state.pendingDraw > 0) {
@@ -434,3 +455,22 @@ export function showGameOver(state) {
 }
 
 export function hideGameOver() { $('overlay-game').hidden = true; }
+
+/** Pluie de confettis aux couleurs du jeu. */
+export function confetti(count = 90) {
+  const box = $('confetti');
+  if (!box) return;
+  if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  const colors = ['#ED1C24', '#FFDE17', '#00A651', '#0072BC', '#FFC93C'];
+  for (let i = 0; i < count; i++) {
+    const p = document.createElement('i');
+    p.style.left = (Math.random() * 100).toFixed(1) + '%';
+    p.style.background = colors[i % colors.length];
+    p.style.width = (6 + Math.random() * 7).toFixed(0) + 'px';
+    p.style.height = (10 + Math.random() * 10).toFixed(0) + 'px';
+    p.style.animationDuration = (2.1 + Math.random() * 2).toFixed(2) + 's';
+    p.style.animationDelay = (Math.random() * 0.8).toFixed(2) + 's';
+    box.appendChild(p);
+    setTimeout(() => p.remove(), 5400);
+  }
+}
