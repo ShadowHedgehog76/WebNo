@@ -269,15 +269,17 @@ function renderOpponent(slot, p, state, handlers) {
 
   const meta = box.querySelector('.pb-meta');
   meta.innerHTML = '';
-  const parts = [`${p.handCount} carte${p.handCount > 1 ? 's' : ''}`, `${p.score} pt`];
-  if (state.settings.mode === 'team') parts.push(ally ? 'Coéquipier' : 'Adverse');
-  if (p.isBot) parts.push('Bot');
-  meta.textContent = parts.join(' · ');
-  if (!p.connected) {
-    const dc = document.createElement('span');
-    dc.className = 'dc-badge'; dc.textContent = ' hors ligne';
-    meta.appendChild(dc);
-  }
+  const bit = (cls, text) => {
+    const el = document.createElement('span');
+    el.className = 'pm ' + cls;
+    el.textContent = text;
+    meta.appendChild(el);
+  };
+  bit('pm-cards', `${p.handCount} carte${p.handCount > 1 ? 's' : ''}`);
+  bit('pm-score', `${p.score} pt`);
+  if (state.settings.mode === 'team') bit('pm-side', ally ? 'Coéquipier' : 'Adverse');
+  if (p.isBot) bit('pm-bot', 'Bot');
+  if (!p.connected) bit('dc-badge', 'hors ligne');
 
   const old = box.querySelector('.uno-badge');
   if (old) old.remove();
@@ -302,41 +304,78 @@ function renderHand(state, handlers) {
   for (const [id, el] of handEls) {
     if (!ids.has(id)) { el.remove(); handEls.delete(id); }
   }
+
+  // 1) on crée d'abord les cartes manquantes, sans les placer
+  state.hand.forEach((card) => {
+    if (handEls.has(card.id)) return;
+    const el = cardEl(card);
+    if (lastHandIds.size) el.classList.add('dealt');
+    el.addEventListener('click', () => handlers.onCardClick && handlers.onCardClick(card, el));
+    host.appendChild(el);
+    handEls.set(card.id, el);
+  });
+
+  // 2) on mesure une carte réelle : aucune supposition sur la taille
   const n = state.hand.length;
-  // l'éventail s'adapte à la largeur disponible ; s'il devient illisible,
-  // la main passe en bande défilante horizontalement (mobile, grandes mains)
-  const cw = host.firstElementChild ? host.firstElementChild.offsetWidth : 92;
-  const room = Math.max(160, host.clientWidth - cw - 16);
+  const first = host.firstElementChild;
+  const cw = (first && first.offsetWidth) || 92;
+  const avail = host.clientWidth || host.getBoundingClientRect().width || window.innerWidth || 800;
+
+  // Les cartes pivotent autour d'un point situé sous la main (transform-origin
+  // 50% 168%) : l'inclinaison les déporte latéralement en plus de leur écart.
+  // Sans en tenir compte, les cartes des extrémités sortent de l'écran.
+  const angStepFor = (k) => Math.min(5.5, 40 / Math.max(k, 1));
+  const arcSpread = (k) => {
+    if (k < 2) return 0;
+    const half = angStepFor(k) * (k - 1) / 2;
+    return 1.18 * (cw * 1.5) * Math.sin(half * Math.PI / 180);
+  };
+  const room = Math.max(120, avail - cw - 24 - 2 * arcSpread(n));
   const raw = n > 1 ? room / (n - 1) : Infinity;
-  const scroll = raw < cw * 0.46;
+
+  // 3) éventail tant que les cartes restent lisibles, sinon bande défilante.
+  //    Les deux seuils diffèrent pour éviter tout clignotement.
+  const wasScroll = host.classList.contains('scroll');
+  const scroll = wasScroll ? raw < cw * 0.50 : raw < cw * 0.44;
   host.classList.toggle('scroll', scroll);
-  // l'écart maximal suit la taille des cartes : sur grand écran la main s'étale
+
   const maxStep = cw * 0.78;
   const step = scroll ? 0 : (n > 1 ? Math.max(16, Math.min(maxStep, raw)) : 0);
-  const angStep = scroll ? 0 : Math.min(5.5, 40 / Math.max(n, 1));
+  const angStep = scroll ? 0 : angStepFor(n);
+  const mid = (n - 1) / 2;
+  const myTurn = state.turnId === state.you;
 
   state.hand.forEach((card, i) => {
-    let el = handEls.get(card.id);
-    if (!el) {
-      el = cardEl(card);
-      if (lastHandIds.size) el.classList.add('dealt');
-      el.addEventListener('click', () => handlers.onCardClick && handlers.onCardClick(card, el));
-      host.appendChild(el);
-      handEls.set(card.id, el);
-    }
-    const mid = (n - 1) / 2;
+    const el = handEls.get(card.id);
     el.style.setProperty('--x', ((i - mid) * step).toFixed(1) + 'px');
     el.style.setProperty('--a', ((i - mid) * angStep).toFixed(2) + 'deg');
     el.style.zIndex = String(i);
     const legal = state.legal.includes(card.id);
-    const myTurn = state.turnId === state.you;
     el.classList.toggle('playable', legal);
     el.classList.toggle('jump', legal && !myTurn);
     el.classList.toggle('dim', !legal && myTurn && state.phase === 'playing');
   });
+
   if (selectedId && !ids.has(selectedId)) selectedId = null;
   for (const [cid, el] of handEls) el.classList.toggle('selected', cid === selectedId);
   lastHandIds = ids;
+}
+
+function renderAllyStrip(state) {
+  const strip = $('ally-strip');
+  if (!strip) return;
+  if (!state.allyHand) { strip.hidden = true; strip.dataset.key = ''; return; }
+  const ally = state.players.find((p) => p.id === state.allyId);
+  const key = (ally ? ally.name : '') + '|' + state.allyHand.map((c) => c.id).join(',');
+  strip.hidden = false;
+  if (strip.dataset.key === key) return;
+  strip.dataset.key = key;
+  $('ally-label').textContent = ally ? `Main de ${ally.name}` : 'Coéquipier';
+  const box = $('ally-cards');
+  box.innerHTML = '';
+  for (const c of [...state.allyHand].sort((a, b) => sortKey(a) - sortKey(b))) {
+    box.appendChild(miniCardEl(c));
+  }
 }
 
 function renderDiscard(state) {
@@ -400,6 +439,7 @@ export function renderGame(state, handlers = {}) {
     } else teamEl.hidden = true;
   }
   $('turn-flag').hidden = state.turnId !== state.you;
+  renderAllyStrip(state);
   renderHand(state, handlers);
 
   // actions

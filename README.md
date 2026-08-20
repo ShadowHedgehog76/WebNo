@@ -19,8 +19,11 @@ les navigateurs se parlent directement en WebRTC (via [PeerJS](https://peerjs.co
 - **Table en 3D légère** (perspective CSS), cartes dessinées entièrement en CSS, aucune image.
 - **Tout au clavier** : ← → pour parcourir la main, Entrée pour poser, Espace pour piocher,
   U pour UNO, C pour dénoncer, 1-4 pour choisir une couleur. La touche `?` ouvre la liste.
-- **Mobile** : quand la main devient trop fournie, elle bascule en bande défilante horizontale
-  au lieu d'empiler des cartes illisibles.
+- **Trois mises en page** selon l'écran : grand écran (le plateau grandit avec la fenêtre et la
+  main s'étale), téléphone en portrait (table verticale, adversaires en bandeau, gros boutons
+  tactiles, main défilante) et téléphone en paysage (tout est resserré pour garder la table lisible).
+- **Main défilante** : quand l'éventail deviendrait illisible, la main se transforme en bande que
+  l'on fait glisser au doigt, cartes à taille pleine.
 - **Habillage** aux couleurs officielles du jeu, décor animé (halos, cartes dérivantes, grain),
   liseré de table qui prend la couleur en cours, confettis de victoire.
 - **Son** : musique de menu, musique de table et une quinzaine de bruitages, **entièrement

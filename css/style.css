@@ -19,7 +19,7 @@
   --felt-2: #0C5540;
   --felt-3: #052E1F;
 
-  --cw: clamp(68px, min(6.4vw, 15vh), 132px);
+  --cw: clamp(74px, min(6.4vw, 15vh), 148px);
   --ch: calc(var(--cw) * 1.5);
   --display: 'Archivo Black', 'Arial Black', 'Helvetica Neue', sans-serif;
   --font: 'Outfit', 'Segoe UI', Roboto, -apple-system, sans-serif;
@@ -326,16 +326,19 @@ body.muted .sound-btn .ico-on { display: none; }
 }
 @keyframes breathe { to { opacity: .58; } }
 .scene {
-  position: absolute; inset: 56px 0 calc(var(--ch) + 116px) 0;
-  perspective: 1500px; perspective-origin: 50% 36%;
+  /* la main recouvre le bas du feutre, comme des cartes tenues devant la table */
+  position: absolute; inset: 56px 0 calc(var(--ch) * 0.6 + 74px) 0;
+  perspective: 1500px; perspective-origin: 50% 38%;
   display: grid; place-items: center;
 }
 .table3d {
   --play-color: rgba(255,255,255,.2);
   position: relative;
-  height: min(660px, 57vh);
-  /* la largeur suit la hauteur pour que l'ellipse ne s'aplatisse jamais */
-  width: min(1400px, 88vw, calc(min(660px, 57vh) * 2.8));
+  /* le plateau prend la hauteur que la scène lui laisse ; la largeur en découle,
+     ce qui garde la même ellipse du téléphone au très grand écran */
+  height: min(760px, 100%);
+  aspect-ratio: 3.05;
+  max-width: 86vw;
   transform: rotateX(25deg); transform-style: preserve-3d;
 }
 .rail {
@@ -547,7 +550,11 @@ body.muted .sound-btn .ico-on { display: none; }
   border: 2px solid rgba(255,255,255,.6); box-shadow: 0 3px 8px rgba(0,0,0,.45);
 }
 .pb-name { font-size: 14px; font-weight: 650; max-width: 104px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.pb-meta { font-size: 11px; color: var(--muted); font-weight: 500; }
+.pb-meta {
+  font-size: 11px; color: var(--muted); font-weight: 500;
+  display: flex; flex-wrap: wrap; justify-content: center; gap: 5px;
+}
+.pb-meta .pm + .pm::before { content: '·'; margin-right: 5px; opacity: .6; }
 .pb-meta .dc-badge { color: #FF938E; }
 .mini-hand { display: flex; height: 42px; align-items: center; }
 .mini-hand .mini {
@@ -590,6 +597,27 @@ body.muted .sound-btn .ico-on { display: none; }
 .mini.face b svg { width: 13px; height: 13px; display: block; }
 .mini.face b .cw { display: block; width: 14px; height: 14px; border-radius: 50%; border: 1.5px solid #fff;
   background: conic-gradient(from 45deg, var(--red) 0 25%, var(--blue) 0 50%, var(--green) 0 75%, var(--yellow) 0); }
+/* main du coéquipier ramenée près de la sienne (petits écrans) */
+.ally-strip {
+  display: none; align-items: center; gap: 9px;
+  max-width: 96vw; margin-bottom: 7px; padding: 5px 10px;
+  background: rgba(0,166,81,.13); border: 1px solid rgba(0,166,81,.3);
+  border-radius: 12px;
+}
+.ally-label {
+  font-size: 10.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
+  color: #6EE39B; white-space: nowrap;
+}
+.ally-cards { display: flex; gap: 3px; overflow-x: auto; padding-bottom: 1px; scrollbar-width: none; }
+.ally-cards::-webkit-scrollbar { display: none; }
+.ally-cards .mini.face {
+  position: relative; flex: 0 0 auto; margin: 0;
+  width: 24px; height: 35px; border-radius: 4px;
+  border: 1.5px solid rgba(255,255,255,.9);
+  display: grid; place-items: center; transform: none;
+  box-shadow: 0 2px 5px rgba(0,0,0,.5);
+}
+
 .keylist { list-style: none; display: grid; gap: 9px; margin-bottom: 20px; text-align: left; }
 .keylist li { display: flex; align-items: center; gap: 8px; font-size: 14px; }
 .keylist span { color: var(--muted); margin-left: 6px; }
@@ -629,7 +657,7 @@ kbd {
   background: linear-gradient(to top, rgba(4,5,9,.96) 30%, rgba(4,5,9,.6) 68%, transparent);
 }
 .me-bar { display: flex; gap: 9px; align-items: center; margin-bottom: 6px; font-size: 13px; }
-.me-name { font-weight: 700; }
+.me-name { font-weight: 700; text-shadow: 0 2px 6px rgba(0,0,0,.85); }
 .me-score, .me-team { color: var(--muted); font-size: 12px; background: var(--panel); padding: 4px 10px; border-radius: 8px; border: 1px solid var(--line); }
 .turn-flag {
   background: linear-gradient(170deg, #FFE95C, var(--yellow)); color: #2E2400;
@@ -809,35 +837,141 @@ body.is-guest .host-only { display: none !important; }
 body.is-host .non-host { display: none !important; }
 
 /* ══════════════════════ adaptations ══════════════════════ */
-@media (max-height: 680px) {
-  .actions { margin-top: 8px; }
-  .me-bar { margin-bottom: 2px; }
-}
+
+/* ─── écrans intermédiaires ─── */
 @media (max-width: 900px) {
   .seat-left  { left: 1%; transform: translate(0, -50%) translateZ(36px) scale(.88); }
   .seat-right { right: 1%; transform: translate(0, -50%) translateZ(36px) scale(.88); }
+  .logpanel { width: 214px; }
 }
-@media (max-width: 660px) {
-  .seat-left  { left: 3px;  top: 4px; transform: translateZ(24px) scale(.74); transform-origin: top left; }
-  .seat-right { right: 3px; top: 4px; transform: translateZ(24px) scale(.74); transform-origin: top right; }
-  .seat-top   { left: 50%;  top: 4px; transform: translate(-50%, 0) translateZ(24px) scale(.74); }
-  .player-box { min-width: 96px; padding: 8px 10px 9px; gap: 5px; }
-  .pb-name { font-size: 12px; max-width: 74px; }
-  .pb-avatar { width: 24px; height: 24px; font-size: 11px; }
-  .pb-meta { font-size: 10px; }
-  .mini-hand { height: 28px; }
-  .mini-hand .mini { width: 17px; height: 26px; margin-left: -11px; }
-  .table3d { height: min(560px, 46vh); }
-  .logpanel { width: 200px; top: 56px; }
-  .btn.action { min-width: 82px; padding: 11px 12px; font-size: 13.5px; }
-  .hud { padding-right: 58px; flex-wrap: nowrap; }
+
+/* ─── interface téléphone ───────────────────────────────────────────
+   Le grand ovale en perspective ne tient pas en portrait : le plateau
+   devient une table verticale arrondie, les adversaires passent en
+   bandeau, et tout ce qui se touche grossit.                        */
+@media (max-width: 600px) {
+  .scene { inset: 48px 0 calc(var(--ch) + 138px) 0; padding: 0 8px; }
+  .table3d {
+    height: 100%; width: 100%; max-width: none; aspect-ratio: auto;
+    transform: rotateX(9deg);
+  }
+  .rail { inset: -7px; border-radius: 26px; }
+  .rail::after { inset: 7px; border-radius: 21px; }
+  .felt { border-radius: 22px; }
+  .felt::after { inset: 10px; border-radius: 16px; }
+  .felt-mark { top: 80%; width: 58%; opacity: .07; }
+  .dir-ring { display: none; }
+
+  /* adversaires en bandeau sur toute la largeur */
+  .seat-left  { left: 6px;  top: 6px; transform: translateZ(14px); transform-origin: top left; }
+  .seat-top   { left: 50%;  top: 6px; transform: translate(-50%, 0) translateZ(14px); }
+  .seat-right { right: 6px; top: 6px; transform: translateZ(14px); transform-origin: top right; }
+  .player-box { min-width: 0; padding: 6px 9px 7px; gap: 4px; border-radius: 13px; }
+  .player-box.active { transform: translateZ(10px) scale(1.02); }
+  .pb-head { gap: 6px; }
+  .pb-avatar { width: 22px; height: 22px; font-size: 10px; border-radius: 7px; }
+  .pb-name { font-size: 11px; max-width: 60px; }
+  .pb-meta { font-size: 9.5px; }
+  .mini-hand { height: 21px; }
+  .mini-hand .mini { width: 14px; height: 20px; margin-left: -9px; border-radius: 3px; }
+  .mini-hand.revealed { display: none; }        /* les cartes passent dans le bandeau */
+  .ally-strip { display: flex; }
+  .ally-cards .mini.face { width: 22px; height: 32px; }
+  .mini.face b { font-size: 11px; }
+  .mini.face b svg, .mini.face b .cw { width: 11px; height: 11px; }
+  .player-box { max-width: 112px; }
+  .pb-meta .pm-score, .pb-meta .pm-side, .pb-meta .pm-bot { display: none; }
+  .pb-meta { white-space: nowrap; }
+  .uno-badge { top: -8px; right: -6px; font-size: 9.5px; padding: 3px 7px; }
+
+  /* la pioche et la défausse restent bien lisibles au centre */
+  .center { --cw: clamp(84px, 23vw, 104px); --ch: calc(var(--cw) * 1.5); gap: 16px; }
+  .pile-count { bottom: -19px; font-size: 10px; }
+  .pending-badge {
+    transform: translate(-50%, calc(-50% - 96px)) translateZ(30px);
+    font-size: 13px; padding: 8px 15px;
+  }
+
+  /* zone du joueur : cibles tactiles confortables */
+  .myzone { height: calc(var(--ch) + 138px); padding-bottom: 10px; }
+  .me-bar { font-size: 12px; gap: 6px; }
+  .me-score, .me-team { font-size: 11px; padding: 3px 8px; }
+  .me-team { max-width: 42vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .actions { width: 100%; padding: 0 10px; gap: 8px; margin-top: 12px; }
+  .btn.action { flex: 1; min-width: 0; padding: 14px 6px; font-size: 14px; border-radius: 14px; }
+  .hand.scroll { padding: 0 12px 8px; gap: 7px; }
+
+  /* bandeau et panneaux */
+  .hud { padding: 10px 12px; padding-right: 56px; flex-wrap: nowrap; }
   .hud-group { flex-wrap: nowrap; }
   #hud-mode, #btn-help { display: none; }
   .chip { padding: 6px 9px; font-size: 11.5px; white-space: nowrap; }
-  .btn-tiny { padding: 6px 10px; font-size: 11.5px; }
-  .lobby-head { padding-right: 56px; }
+  .btn-tiny { padding: 7px 11px; font-size: 12px; }
+  .logpanel { left: 8px; right: 8px; width: auto; top: 52px; max-height: 34vh; }
+  .toasts { top: 56px; width: 92vw; }
+  .toast { font-size: 13px; padding: 9px 14px; }
+  .sound-dock { top: 10px; right: 10px; }
+  .sound-btn { width: 38px; height: 38px; }
+
+  /* accueil et salon */
   .home-facts { display: none; }
-  .col { width: 84px; height: 84px; }
+  .hero { padding-top: 96px; }
+  .wordmark { width: min(320px, 74vw); }
+  .fan-card { width: 78px; height: 117px; }
+  .lobby-wrap { padding: 18px 14px 30px; }
+  .lobby-head { padding-right: 52px; }
+  .lobby-head h2 { font-size: 24px; }
+  .code-value { font-size: 26px; }
+  .panel { padding: 16px; border-radius: 16px; }
+  .lobby-foot { margin: 18px -14px -30px; padding: 14px; }
+  .lobby-foot .btn-big { flex: 1; }
+  .status { order: 3; width: 100%; }
+
+  /* fenêtres modales */
+  .modal { padding: 22px 18px; border-radius: 20px; }
+  .modal.wide { min-width: 0; width: 100%; }
+  .modal h3 { font-size: 19px; }
+  .col { width: 100%; height: 78px; border-radius: 16px; }
+  .color-picker { gap: 10px; }
+  .scoreboard { font-size: 13px; }
+  .scoreboard th, .scoreboard td { padding: 8px 6px; }
+  .keylist { display: none; }
+}
+
+/* ─── téléphone en paysage : la hauteur est la ressource rare ─── */
+@media (max-height: 480px) and (orientation: landscape) {
+  :root { --cw: clamp(46px, 12.5vh, 84px); }
+  .hud { padding: 8px 12px; padding-right: 54px; }
+  .scene { inset: 40px 0 calc(var(--ch) * 0.55 + 60px) 0; }
+  .myzone { height: calc(var(--ch) + 74px); padding-bottom: 6px; }
+  .me-bar { margin-bottom: 2px; font-size: 11px; gap: 6px; }
+  .me-score, .me-team { font-size: 10.5px; padding: 2px 7px; }
+  .actions { margin-top: 6px; }
+  .btn.action { padding: 8px 12px; font-size: 12.5px; min-width: 86px; }
+  .felt-mark, .pile-count { display: none; }
+  .player-box { min-width: 0; max-width: 132px; padding: 5px 8px 6px; gap: 3px; }
+  .pb-avatar { width: 20px; height: 20px; font-size: 9px; border-radius: 6px; }
+  .pb-name { font-size: 10.5px; max-width: 66px; }
+  .pb-meta { font-size: 9px; white-space: nowrap; }
+  .pb-meta .pm-score, .pb-meta .pm-side, .pb-meta .pm-bot { display: none; }
+  .mini-hand { height: 18px; }
+  .mini-hand .mini { width: 12px; height: 17px; margin-left: -8px; }
+  /* en paysage la largeur ne manque pas : les cartes du coéquipier
+     restent sur sa plaque, le bandeau devient inutile */
+  .mini-hand.revealed { display: flex; max-width: 124px; gap: 2px; }
+  .mini-hand.revealed .mini.face { width: 17px; height: 25px; border-radius: 3px; }
+  .mini.face b { font-size: 9px; }
+  .mini.face b svg, .mini.face b .cw { width: 9px; height: 9px; }
+  .ally-strip { display: none; }
+  .uno-badge { top: -8px; right: -4px; font-size: 8.5px; padding: 2px 6px; border-width: 1.5px; }
+  .chip { padding: 5px 8px; font-size: 11px; }
+  #hud-mode, #btn-help { display: none; }
+}
+
+/* ─── écrans peu hauts en général ─── */
+@media (max-height: 680px) and (orientation: landscape) {
+  .actions { margin-top: 8px; }
+  .me-bar { margin-bottom: 2px; }
 }
 
 @media (prefers-reduced-motion: reduce) {
