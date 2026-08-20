@@ -181,6 +181,7 @@
       <span class="chip" id="hud-mode">Solo</span>
     </div>
     <div class="hud-group">
+      <button class="btn btn-tiny" id="btn-help" title="Raccourcis clavier (?)">Raccourcis</button>
       <button class="btn btn-tiny" id="btn-toggle-log">Journal</button>
       <button class="btn btn-tiny danger" id="btn-quit">Quitter</button>
     </div>
@@ -285,6 +286,26 @@
       <button class="btn btn-green host-only" id="btn-rematch">Revanche</button>
       <button class="btn btn-ghost" id="btn-home">Accueil</button>
     </div>
+  </div>
+</div>
+
+<div class="overlay" id="overlay-help" hidden>
+  <div class="modal wide">
+    <h3>Raccourcis clavier</h3>
+    <ul class="keylist">
+      <li><kbd>←</kbd><kbd>→</kbd><span>Parcourir votre main</span></li>
+      <li><kbd>Entrée</kbd><span>Poser la carte sélectionnée</span></li>
+      <li><kbd>Espace</kbd><span>Piocher</span></li>
+      <li><kbd>P</kbd><span>Passer son tour après une pioche</span></li>
+      <li><kbd>U</kbd><span>Annoncer UNO (ou l'armer à deux cartes)</span></li>
+      <li><kbd>C</kbd><span>Dénoncer un joueur qui a oublié UNO</span></li>
+      <li><kbd>1</kbd>…<kbd>4</kbd><span>Choisir la couleur, ou le joueur du 7</span></li>
+      <li><kbd>Échap</kbd><span>Annuler le choix en cours</span></li>
+      <li><kbd>J</kbd><span>Afficher le journal</span></li>
+      <li><kbd>M</kbd><span>Couper ou rétablir le son</span></li>
+      <li><kbd>?</kbd><span>Ouvrir cette liste</span></li>
+    </ul>
+    <div class="modal-actions"><button class="btn btn-ghost" data-cancel>Fermer</button></div>
   </div>
 </div>
 

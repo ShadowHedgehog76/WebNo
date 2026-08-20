@@ -13,9 +13,14 @@ les navigateurs se parlent directement en WebRTC (via [PeerJS](https://peerjs.co
 - **Bots** : l'hôte complète les places libres d'un clic. Trois niveaux (facile / normal / difficile).
   Un joueur qui se déconnecte est immédiatement repris par un bot, la partie continue.
 - **Deux modes** : *chacun pour soi*, ou *équipes 2 v 2* (les places 1-3 contre les places 2-4,
-  l'hôte peut permuter les joueurs avec le bouton ⇅).
+  l'hôte peut permuter les joueurs avec le bouton ⇅). En équipes, **les coéquipiers jouent à
+  cartes ouvertes** : la main de votre partenaire s'affiche triée sur sa plaque.
 - **Victoire** : au score (200 / 300 / 500 points, décompte UNO classique) ou en une seule manche.
 - **Table en 3D légère** (perspective CSS), cartes dessinées entièrement en CSS, aucune image.
+- **Tout au clavier** : ← → pour parcourir la main, Entrée pour poser, Espace pour piocher,
+  U pour UNO, C pour dénoncer, 1-4 pour choisir une couleur. La touche `?` ouvre la liste.
+- **Mobile** : quand la main devient trop fournie, elle bascule en bande défilante horizontale
+  au lieu d'empiler des cartes illisibles.
 - **Habillage** aux couleurs officielles du jeu, décor animé (halos, cartes dérivantes, grain),
   liseré de table qui prend la couleur en cours, confettis de victoire.
 - **Son** : musique de menu, musique de table et une quinzaine de bruitages, **entièrement

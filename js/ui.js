@@ -83,6 +83,22 @@ export function cardEl(card, opts = {}) {
   return d;
 }
 
+/** Carte miniature face visible, pour la main du coéquipier. */
+export function miniCardEl(card) {
+  const d = document.createElement('span');
+  d.className = 'mini face ' + (isWild(card) ? 'wild' : card.color);
+  const v = document.createElement('b');
+  if (card.value === 'wild') v.innerHTML = WHEEL;
+  else if (SYMBOL[card.value]) v.innerHTML = SYMBOL[card.value];
+  else v.textContent = GLYPH[card.value] ?? card.value;
+  d.appendChild(v);
+  return d;
+}
+
+const VALUE_ORDER = { skip: 10, reverse: 11, draw2: 12, wild: 13, wild4: 14 };
+const sortKey = (c) => (isWild(c) ? 9 : ['red', 'yellow', 'green', 'blue'].indexOf(c.color)) * 100
+  + (VALUE_ORDER[c.value] ?? Number(c.value));
+
 /* ───────────────────────────── salon ───────────────────────────── */
 const AV_COLORS = ['#ED1C24', '#0072BC', '#00A651', '#FFDE17'];
 
@@ -164,11 +180,26 @@ const seatIds = { left: 'seat-left', top: 'seat-top', right: 'seat-right' };
 let handEls = new Map();
 let lastTopId = null;
 let lastHandIds = new Set();
+let selectedId = null;
+
+/** Met en avant la carte visée par le clavier. */
+export function setSelection(id) {
+  selectedId = id;
+  for (const [cid, el] of handEls) el.classList.toggle('selected', cid === id);
+  const el = id && handEls.get(id);
+  if (el && el.parentElement && el.parentElement.classList.contains('scroll')) {
+    el.scrollIntoView({ block: 'nearest', inline: 'center', behavior: 'smooth' });
+  }
+}
+export function getSelection() { return selectedId; }
 
 export function resetGameView() {
-  handEls = new Map(); lastTopId = null; lastHandIds = new Set();
+  handEls = new Map(); lastTopId = null; lastHandIds = new Set(); selectedId = null;
   $('hand').innerHTML = '';
+  $('hand').classList.remove('scroll');
   $('discard-pile').innerHTML = '';
+  const list = $('loglist');
+  if (list) { list.innerHTML = ''; delete list.dataset.stamp; }
   for (const id of Object.values(seatIds)) $(id).innerHTML = '';
 }
 
@@ -211,14 +242,28 @@ function renderOpponent(slot, p, state, handlers) {
   av.style.color = p.seat % 4 === 3 ? '#2E2400' : '#fff';
 
   const mini = box.querySelector('.mini-hand');
-  const shown = Math.min(p.handCount, 8);
-  if (mini.childElementCount !== shown) {
-    mini.innerHTML = '';
-    for (let i = 0; i < shown; i++) {
-      const c = document.createElement('div');
-      c.className = 'mini';
-      c.style.setProperty('--r', (i - shown / 2) * 3 + 'deg');
-      mini.appendChild(c);
+  const revealed = state.allyHand && p.id === state.allyId;
+  mini.classList.toggle('revealed', !!revealed);
+  if (revealed) {
+    const key = state.allyHand.map((c) => c.id).join(',');
+    if (mini.dataset.key !== key) {
+      mini.dataset.key = key;
+      mini.innerHTML = '';
+      for (const c of [...state.allyHand].sort((a, b) => sortKey(a) - sortKey(b))) {
+        mini.appendChild(miniCardEl(c));
+      }
+    }
+  } else {
+    const shown = Math.min(p.handCount, 8);
+    if (mini.dataset.key || mini.childElementCount !== shown) {
+      mini.dataset.key = '';
+      mini.innerHTML = '';
+      for (let i = 0; i < shown; i++) {
+        const c = document.createElement('div');
+        c.className = 'mini';
+        c.style.setProperty('--r', (i - shown / 2) * 3 + 'deg');
+        mini.appendChild(c);
+      }
     }
   }
 
@@ -258,11 +303,17 @@ function renderHand(state, handlers) {
     if (!ids.has(id)) { el.remove(); handEls.delete(id); }
   }
   const n = state.hand.length;
-  // l'éventail s'adapte à la largeur disponible : jamais de carte hors écran
+  // l'éventail s'adapte à la largeur disponible ; s'il devient illisible,
+  // la main passe en bande défilante horizontalement (mobile, grandes mains)
   const cw = host.firstElementChild ? host.firstElementChild.offsetWidth : 92;
   const room = Math.max(160, host.clientWidth - cw - 16);
-  const step = n > 1 ? Math.max(14, Math.min(52, room / (n - 1))) : 0;
-  const angStep = Math.min(5.5, 40 / Math.max(n, 1));
+  const raw = n > 1 ? room / (n - 1) : Infinity;
+  const scroll = raw < cw * 0.46;
+  host.classList.toggle('scroll', scroll);
+  // l'écart maximal suit la taille des cartes : sur grand écran la main s'étale
+  const maxStep = cw * 0.78;
+  const step = scroll ? 0 : (n > 1 ? Math.max(16, Math.min(maxStep, raw)) : 0);
+  const angStep = scroll ? 0 : Math.min(5.5, 40 / Math.max(n, 1));
 
   state.hand.forEach((card, i) => {
     let el = handEls.get(card.id);
@@ -283,6 +334,8 @@ function renderHand(state, handlers) {
     el.classList.toggle('jump', legal && !myTurn);
     el.classList.toggle('dim', !legal && myTurn && state.phase === 'playing');
   });
+  if (selectedId && !ids.has(selectedId)) selectedId = null;
+  for (const [cid, el] of handEls) el.classList.toggle('selected', cid === selectedId);
   lastHandIds = ids;
 }
 
@@ -357,8 +410,11 @@ export function renderGame(state, handlers = {}) {
   $('btn-uno').disabled = !(state.canUno || (state.settings.unoRule && state.hand.length === 2 && state.turnId === state.you));
   $('btn-challenge').hidden = !state.canChallenge;
 
-  // journal
+  // journal : reconstruit uniquement quand il a changé
   const list = $('loglist');
+  const stamp = state.log.length ? String(state.log[state.log.length - 1].t) + ':' + state.log.length : '0';
+  if (list.dataset.stamp === stamp) return;
+  list.dataset.stamp = stamp;
   list.innerHTML = '';
   for (const e of state.log.slice(-24).reverse()) {
     const li = document.createElement('li');

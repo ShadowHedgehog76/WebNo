@@ -497,6 +497,10 @@ export class UnoGame {
   stateFor(playerId) {
     const me = this.byId(playerId);
     const top = this.topCard();
+    // en mode équipes, les coéquipiers jouent à cartes ouvertes
+    const ally = me && this.settings.mode === 'team'
+      ? this.players.find((p) => p.team === me.team && p.id !== me.id)
+      : null;
     const calloutTargets = this.settings.unoRule
       ? this.players.filter((p) => p.mustCallUno && p.id !== playerId).map((p) => p.id)
       : [];
@@ -520,6 +524,8 @@ export class UnoGame {
         handCount: p.hand.length, mustCallUno: p.mustCallUno,
       })),
       hand: me ? me.hand.map((c) => ({ ...c })) : [],
+      allyId: ally ? ally.id : null,
+      allyHand: ally ? ally.hand.map((c) => ({ ...c })) : null,
       legal: me ? this.legalCardsFor(me) : [],
       canDraw: !!me && this.phase === 'playing' && me.id === this.current.id && !this.drawnCardId,
       canPass: !!me && this.phase === 'playing' && me.id === this.current.id && !!this.drawnCardId,

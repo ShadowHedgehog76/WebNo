@@ -592,11 +592,87 @@ function wireGame() {
   $('btn-rematch').onclick = () => App.host && App.host.rematch();
   $('btn-home').onclick = () => leave();
 
+  $('btn-help').onclick = () => { $('overlay-help').hidden = !$('overlay-help').hidden; };
+  $('overlay-help').querySelector('[data-cancel]').onclick = () => { $('overlay-help').hidden = true; };
+  wireKeyboard();
+}
+
+/* ── clavier ─────────────────────────────────────────────────────── */
+function moveSelection(dir) {
+  const s = App.view;
+  if (!s || !s.hand.length) return;
+  const ids = s.hand.map((c) => c.id);
+  const i = ids.indexOf(ui.getSelection());
+  const next = i < 0 ? (dir > 0 ? 0 : ids.length - 1) : (i + dir + ids.length) % ids.length;
+  ui.setSelection(ids[next]);
+  audio.sfx('click');
+}
+
+function playSelected() {
+  const s = App.view;
+  const id = ui.getSelection();
+  if (!s || !id) { ui.toast('Choisissez une carte avec ← et →.'); return; }
+  const card = s.hand.find((c) => c.id === id);
+  if (card) onCardClick(card);
+}
+
+function clickIn(overlayId, selector, index) {
+  const list = $(overlayId).querySelectorAll(selector);
+  if (list[index]) { list[index].click(); return true; }
+  return false;
+}
+
+function wireKeyboard() {
   document.addEventListener('keydown', (e) => {
-    if (!App.view || $('screen-game').classList.contains('active') === false) return;
-    if (e.key === 'd' || e.key === 'D') $('btn-draw').click();
-    if (e.key === 'u' || e.key === 'U') $('btn-uno').click();
-    if (e.key === 'p' || e.key === 'P') { if (!$('btn-pass').hidden) $('btn-pass').click(); }
+    if (e.metaKey || e.ctrlKey || e.altKey) return;
+    if (e.target && e.target.closest && e.target.closest('input, textarea')) return;
+    const k = e.key;
+
+    if (k === '?' || k === 'h' || k === 'H') {
+      $('overlay-help').hidden = !$('overlay-help').hidden;
+      e.preventDefault(); return;
+    }
+    if (k === 'Escape') {
+      for (const id of ['overlay-help', 'overlay-color', 'overlay-target']) {
+        const ov = $(id);
+        if (!ov.hidden) { const c = ov.querySelector('[data-cancel]'); if (c) c.click(); e.preventDefault(); return; }
+      }
+      if (!$('sound-panel').hidden) $('sound-panel').hidden = true;
+      return;
+    }
+    if (k === 'm' || k === 'M') { $('btn-mute').click(); return; }
+
+    // un sélecteur ouvert capte les chiffres
+    if (!$('overlay-color').hidden) {
+      if ('1234'.includes(k)) { clickIn('overlay-color', '.col', Number(k) - 1); e.preventDefault(); }
+      return;
+    }
+    if (!$('overlay-target').hidden) {
+      if ('123'.includes(k)) { clickIn('overlay-target', '#target-picker button', Number(k) - 1); e.preventDefault(); }
+      return;
+    }
+    if (!$('overlay-round').hidden) {
+      if (k === 'Enter' && App.role === 'host' && !$('btn-next-round').disabled) $('btn-next-round').click();
+      return;
+    }
+    if (!$('overlay-help').hidden || !$('screen-game').classList.contains('active') || !App.view) return;
+
+    const press = (id) => { const b = $(id); if (b && !b.disabled && !b.hidden) b.click(); };
+    switch (k) {
+      case 'ArrowLeft':  moveSelection(-1); e.preventDefault(); break;
+      case 'ArrowRight': moveSelection(1);  e.preventDefault(); break;
+      case 'Enter':      playSelected();    e.preventDefault(); break;
+      case ' ':          press('btn-draw'); e.preventDefault(); break;
+      case 'd': case 'D': press('btn-draw'); break;
+      case 'p': case 'P': press('btn-pass'); break;
+      case 'u': case 'U': press('btn-uno'); break;
+      case 'j': case 'J': press('btn-toggle-log'); break;
+      case 'c': case 'C': {
+        const t = App.view.calloutTargets;
+        if (t && t.length) send({ type: 'callout', targetId: t[0] });
+        break;
+      }
+    }
   });
 }
 
