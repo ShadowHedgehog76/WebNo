@@ -325,7 +325,11 @@ export function qrSvg(text, { margin = 3, dark = '#0B0C12', light = '#FFFFFF' } 
       if (modules[r][c]) path += `M${c + margin} ${r + margin}h1v1h-1z`;
     }
   }
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${total} ${total}" shape-rendering="crispEdges" role="img" aria-label="QR code">`
+  // Les attributs width/height sont indispensables : sans eux, certains
+  // navigateurs donnent une taille intrinsèque nulle au SVG dans un bouton.
+  const px = total * 8;
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${px}" height="${px}" `
+    + `viewBox="0 0 ${total} ${total}" shape-rendering="crispEdges" role="img" aria-label="QR code">`
     + `<rect width="${total}" height="${total}" fill="${light}"/>`
     + `<path d="${path}" fill="${dark}"/></svg>`;
 }

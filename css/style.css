@@ -1137,13 +1137,13 @@ body.is-spectator #deck-pile.can-draw { animation: none; }
 
 /* ══════════════════════ QR code d'invitation ══════════════════════ */
 .qr {
-  display: block; width: 148px; height: 148px; margin: 4px auto 6px; padding: 0;
+  display: block; width: 168px; height: 168px; margin: 5px auto 6px; padding: 0;
   border: 4px solid #fff; border-radius: 10px; background: #fff; cursor: zoom-in;
   box-shadow: 0 8px 22px rgba(0,0,0,.5); overflow: hidden;
   transition: transform .16s var(--ease);
 }
 .qr:hover { transform: scale(1.04); }
-.qr svg { display: block; width: 100%; height: 100%; }
+.qr svg { display: block; width: 100% !important; height: 100% !important; }
 .qr:empty { display: none; }
 .qr-hint { font-size: 10.5px; color: var(--muted); margin-bottom: 9px; }
 .qr:empty + .qr-hint { display: none; }
@@ -1151,7 +1151,7 @@ body.is-spectator #deck-pile.can-draw { animation: none; }
   width: min(58vh, 78vw); height: min(58vh, 78vw); margin: 0 auto 16px;
   border: 10px solid #fff; border-radius: 14px; background: #fff;
 }
-.qr-big svg { display: block; width: 100%; height: 100%; }
+.qr-big svg { display: block; width: 100% !important; height: 100% !important; }
 #qr-big-code { font-family: var(--display); font-style: italic; letter-spacing: .2em; font-size: 30px; }
 
 .scan-btn { margin-top: 12px; display: none; align-items: center; justify-content: center; gap: 9px; }

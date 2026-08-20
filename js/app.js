@@ -27,6 +27,7 @@ const App = {
   armedUno: false,
   lastLogAt: 0,
   busy: false,
+  leaving: false,
 };
 
 /* ═══════════════════════════ HÔTE ═══════════════════════════ */
@@ -659,8 +660,13 @@ function wireGame() {
 
 /* ── clavier ─────────────────────────────────────────────────────── */
 /* ── lecture d'un QR code par la caméra ────────────────────────────── */
+// Un ordinateur de bureau sait souvent lire les codes-barres, mais on ne
+// braque pas un écran devant sa webcam : le bouton n'a de sens qu'au doigt.
+const isHandheld = () => window.matchMedia
+  && (window.matchMedia('(pointer: coarse)').matches || window.matchMedia('(hover: none)').matches);
 const canScan = () => typeof window.BarcodeDetector === 'function'
-  && !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
+  && !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia)
+  && isHandheld();
 
 let scanStream = null, scanTimer = null;
 
@@ -798,15 +804,20 @@ function wireKeyboard() {
 }
 
 function leave() {
-  if (confirmLeave()) {
-    if (App.host) App.host.destroy();
-    if (App.client) App.client.destroy();
-    location.reload();
-  }
+  if (!confirmLeave()) return;
+  App.leaving = true;                    // désarme le garde-fou de fermeture
+  try { if (App.host) App.host.destroy(); } catch (_) {}
+  try { if (App.client) App.client.destroy(); } catch (_) {}
+  App.role = null;
+  App.view = null;
+  audio.stopMusic();
+  // on repart sur une adresse propre, sans l'ancre de la room quittée
+  location.replace(location.origin + location.pathname);
 }
 
 function confirmLeave() {
-  return App.role === null || window.confirm('Quitter la partie ?');
+  if (App.role === null) return true;
+  return window.confirm(App.view ? 'Quitter la partie en cours ?' : 'Quitter le salon ?');
 }
 
 export { Host, Guest, App };   // exposés pour les tests
@@ -842,6 +853,8 @@ function boot() {
 if (document.readyState === 'loading') window.addEventListener('DOMContentLoaded', boot);
 else boot();
 
+// Avertit d'une fermeture accidentelle, mais jamais quand on quitte exprès :
+// sinon l'utilisateur enchaîne deux boîtes de dialogue et croit être bloqué.
 window.addEventListener('beforeunload', (e) => {
-  if (App.role && App.view) { e.preventDefault(); e.returnValue = ''; }
+  if (!App.leaving && App.role && App.view) { e.preventDefault(); e.returnValue = ''; }
 });
