@@ -1101,22 +1101,29 @@ body.is-spectator .party-list { max-height: calc(100% - 72px); }
 body.is-party .seat { display: none; }
 /* la table se mesure sur l'espace laissé par la liste, pas sur la fenêtre.
    La perspective élargit le rendu d'environ 8 %, la borne en tient compte. */
-body.is-party .table3d { max-width: calc(78vw - 300px); }
+body.is-party .table3d { max-width: calc(93vw - 306px); }
 body.is-party .scene { left: 280px; top: 108px; }
 body.is-spectator .myzone,
 body.is-spectator .ally-strip { display: none; }
 body.is-spectator .scene { bottom: 16px; }
-body.is-spectator .table3d { height: min(600px, 74%); }
-body.is-spectator .center { --cw: clamp(112px, 10vw, 176px); --ch: calc(var(--cw) * 1.5); gap: 40px; }
-body.is-spectator .dir-ring { --ring-r: calc(var(--cw) * 2.6); }
-body.is-spectator .orbit i { width: 38px; height: 34px; margin: -17px 0 0 -19px; }
-body.is-spectator .pile-count { bottom: -26px; font-size: 13px; }
+/* Les cartes de la table sont le seul objet à regarder : on les agrandit,
+   et l'anneau de flèches se dimensionne sur elles — le poser sur la taille
+   des cartes en main (inexistantes ici) l'envoyait bien au-delà du plateau. */
+body.is-spectator .table3d {
+  --cw: clamp(130px, 13vw, 240px);
+  --ch: calc(var(--cw) * 1.5);
+  height: min(780px, 100%);
+}
+body.is-spectator .center { gap: clamp(24px, 3vw, 52px); }
+body.is-spectator .dir-ring { --ring-r: calc(var(--cw) * 1.45); }
+body.is-spectator .orbit i { width: 40px; height: 36px; margin: -18px 0 0 -20px; }
+body.is-spectator .pile-count { bottom: -28px; font-size: 14px; }
 body.is-spectator #deck-pile { cursor: default; }
 body.is-spectator #deck-pile.can-draw { animation: none; }
 
 @media (max-width: 1000px) {
   .party-list { width: 200px; }
-  body.is-party .table3d { max-width: calc(80vw - 240px); }
+  body.is-party .table3d { max-width: calc(95vw - 236px); }
   body.is-party .scene { left: 224px; }
   .lap-strip { left: 224px; gap: 6px; }
   .lap-card { padding: 6px 9px; gap: 6px; }
@@ -1165,4 +1172,56 @@ body.can-scan .scan-btn { display: flex; }
 .scan-reticle {
   position: absolute; inset: 16%; border-radius: 14px; pointer-events: none;
   box-shadow: 0 0 0 2px rgba(255,201,60,.85), 0 0 0 100vmax rgba(3,4,8,.45);
+}
+
+/* ═════════ mode party sur téléphone : le téléphone n'est qu'une manette ═════════
+   Le plateau vit sur le grand écran de l'hôte. Sur le téléphone d'un joueur on
+   ne garde que l'essentiel : est-ce à moi, sur quoi je pose, et mes cartes.   */
+@media (max-width: 600px) {
+  body.is-party:not(.is-spectator) .felt,
+  body.is-party:not(.is-spectator) .rail,
+  body.is-party:not(.is-spectator) .dir-ring,
+  body.is-party:not(.is-spectator) .party-list,
+  body.is-party:not(.is-spectator) .lap-strip,
+  body.is-party:not(.is-spectator) .ally-strip,
+  body.is-party:not(.is-spectator) .seat { display: none; }
+
+  body.is-party:not(.is-spectator) .scene {
+    inset: 52px 0 calc(var(--ch) + 128px) 0; padding: 0;
+    perspective: none;
+  }
+  body.is-party:not(.is-spectator) .table3d {
+    transform: none; height: 100%; width: 100%; max-width: none; aspect-ratio: auto;
+  }
+  /* les deux piles, en grand, seules au centre */
+  body.is-party:not(.is-spectator) .center {
+    --cw: clamp(104px, 32vw, 148px); --ch: calc(var(--cw) * 1.5);
+    gap: 18px; transform: translate(-50%, -50%);
+  }
+  body.is-party:not(.is-spectator) .pile-count { bottom: -22px; font-size: 12px; }
+  body.is-party:not(.is-spectator) .pending-badge {
+    transform: translate(-50%, calc(-50% - 128px)); font-size: 14px;
+  }
+
+  /* l'indicateur de tour devient le point de mire */
+  body.is-party:not(.is-spectator) .me-bar {
+    width: 100%; padding: 0 12px; justify-content: center; margin-bottom: 8px;
+  }
+  body.is-party:not(.is-spectator) .turn-flag {
+    flex: 1; text-align: center; padding: 11px 14px; font-size: 15px;
+    border-radius: 12px; letter-spacing: .02em;
+  }
+  /* seul l'indicateur compte ici : le pseudo et le score encombrent */
+  body.is-party:not(.is-spectator) .me-team,
+  body.is-party:not(.is-spectator) .me-name,
+  body.is-party:not(.is-spectator) .me-score { display: none; }
+  /* quand ce n'est pas à nous, on le dit aussi — le vide n'informe pas */
+  body.is-party:not(.is-spectator) .me-bar::after {
+    content: 'En attente des autres joueurs';
+    display: block; flex: 1; text-align: center;
+    font-size: 13px; color: var(--muted);
+    padding: 11px 14px; border-radius: 12px;
+    background: rgba(255,255,255,.05); border: 1px solid var(--line);
+  }
+  body.is-party:not(.is-spectator) .me-bar:has(.turn-flag:not([hidden]))::after { display: none; }
 }

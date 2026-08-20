@@ -836,6 +836,7 @@ function boot() {
   ui.showScreen('home');
 
   window.__webno = App;   // point d'accès pour le débogage / les tests
+  window.__apply = applyState;
 
   // rejoindre directement via #CODE
   // arrivée par un lien d'invitation ou un QR scanné avec l'appareil photo
