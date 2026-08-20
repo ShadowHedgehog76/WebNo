@@ -391,7 +391,9 @@ body.muted .sound-btn .ico-on { display: none; }
   width: 30px; height: 27px; margin: -13px 0 0 -15px;
   background: rgba(255,255,255,.85);
   clip-path: polygon(0 6%, 100% 50%, 0 94%, 32% 50%);
-  transform: rotate(var(--a)) translateY(calc(var(--ring-r) * -1)) rotate(90deg);
+  /* rotate(--a) oriente déjà le repère local : l'axe X local suit la tangente,
+     donc la flèche (qui pointe vers la droite) indique le sens de rotation. */
+  transform: rotate(var(--a)) translateY(calc(var(--ring-r) * -1));
   filter: drop-shadow(0 2px 5px rgba(0,0,0,.8));
 }
 
