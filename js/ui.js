@@ -198,8 +198,6 @@ export function resetGameView() {
   $('hand').innerHTML = '';
   $('hand').classList.remove('scroll');
   $('discard-pile').innerHTML = '';
-  const list = $('loglist');
-  if (list) { list.innerHTML = ''; delete list.dataset.stamp; }
   for (const id of Object.values(seatIds)) $(id).innerHTML = '';
 }
 
@@ -450,18 +448,6 @@ export function renderGame(state, handlers = {}) {
   $('btn-uno').disabled = !(state.canUno || (state.settings.unoRule && state.hand.length === 2 && state.turnId === state.you));
   $('btn-challenge').hidden = !state.canChallenge;
 
-  // journal : reconstruit uniquement quand il a changé
-  const list = $('loglist');
-  const stamp = state.log.length ? String(state.log[state.log.length - 1].t) + ':' + state.log.length : '0';
-  if (list.dataset.stamp === stamp) return;
-  list.dataset.stamp = stamp;
-  list.innerHTML = '';
-  for (const e of state.log.slice(-24).reverse()) {
-    const li = document.createElement('li');
-    li.textContent = e.text;
-    if (['win', 'uno', 'callout', 'penalty', 'swap', 'rotate', 'jump', 'challenge'].includes(e.type)) li.classList.add('hl');
-    list.appendChild(li);
-  }
 }
 
 /* ───────────────────────────── overlays ───────────────────────────── */

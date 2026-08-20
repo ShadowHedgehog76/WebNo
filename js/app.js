@@ -586,7 +586,6 @@ function wireGame() {
       ui.toast(App.armedUno ? 'UNO armé : votre prochaine pose annoncera UNO.' : 'UNO désarmé.');
     }
   };
-  $('btn-toggle-log').onclick = () => { const p = $('logpanel'); p.hidden = !p.hidden; };
   $('btn-quit').onclick = () => leave();
   $('btn-next-round').onclick = () => App.host && App.host.nextRound();
   $('btn-rematch').onclick = () => App.host && App.host.rematch();
@@ -666,7 +665,6 @@ function wireKeyboard() {
       case 'd': case 'D': press('btn-draw'); break;
       case 'p': case 'P': press('btn-pass'); break;
       case 'u': case 'U': press('btn-uno'); break;
-      case 'j': case 'J': press('btn-toggle-log'); break;
       case 'c': case 'C': {
         const t = App.view.calloutTargets;
         if (t && t.length) send({ type: 'callout', targetId: t[0] });

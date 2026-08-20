@@ -17,6 +17,8 @@ les navigateurs se parlent directement en WebRTC (via [PeerJS](https://peerjs.co
   cartes ouvertes** : la main de votre partenaire s'affiche triée sur sa plaque.
 - **Victoire** : au score (200 / 300 / 500 points, décompte UNO classique) ou en une seule manche.
 - **Table en 3D légère** (perspective CSS), cartes dessinées entièrement en CSS, aucune image.
+  Des flèches tournent autour des piles et indiquent en permanence le sens du jeu, qui s'inverse
+  avec les cartes « sens ».
 - **Tout au clavier** : ← → pour parcourir la main, Entrée pour poser, Espace pour piocher,
   U pour UNO, C pour dénoncer, 1-4 pour choisir une couleur. La touche `?` ouvre la liste.
 - **Trois mises en page** selon l'écran : grand écran (le plateau grandit avec la fenêtre et la

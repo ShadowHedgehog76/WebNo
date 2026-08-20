@@ -182,7 +182,6 @@
     </div>
     <div class="hud-group">
       <button class="btn btn-tiny" id="btn-help" title="Raccourcis clavier (?)">Raccourcis</button>
-      <button class="btn btn-tiny" id="btn-toggle-log">Journal</button>
       <button class="btn btn-tiny danger" id="btn-quit">Quitter</button>
     </div>
   </header>
@@ -213,9 +212,11 @@
         </div>
         <div class="pile discard" id="discard-pile"></div>
       </div>
-      <div class="dir-ring" id="dir-ring">
-        <span class="arrow a1"></span><span class="arrow a2"></span>
-        <span class="arrow a3"></span><span class="arrow a4"></span>
+      <div class="dir-ring" id="dir-ring" aria-hidden="true">
+        <div class="orbit">
+          <i style="--a:0deg"></i><i style="--a:60deg"></i><i style="--a:120deg"></i>
+          <i style="--a:180deg"></i><i style="--a:240deg"></i><i style="--a:300deg"></i>
+        </div>
       </div>
       <div class="pending-badge" id="pending-badge" hidden></div>
     </div>
@@ -241,7 +242,6 @@
     </div>
   </div>
 
-  <aside class="logpanel" id="logpanel" hidden><h4>Journal</h4><ul id="loglist"></ul></aside>
   <div class="toasts" id="toasts"></div>
   <div class="confetti" id="confetti" aria-hidden="true"></div>
 </section>
@@ -305,7 +305,6 @@
       <li><kbd>C</kbd><span>Dénoncer un joueur qui a oublié UNO</span></li>
       <li><kbd>1</kbd>…<kbd>4</kbd><span>Choisir la couleur, ou le joueur du 7</span></li>
       <li><kbd>Échap</kbd><span>Annuler le choix en cours</span></li>
-      <li><kbd>J</kbd><span>Afficher le journal</span></li>
       <li><kbd>M</kbd><span>Couper ou rétablir le son</span></li>
       <li><kbd>?</kbd><span>Ouvrir cette liste</span></li>
     </ul>

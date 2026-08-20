@@ -375,24 +375,25 @@ body.muted .sound-btn .ico-on { display: none; }
 }
 .felt-mark svg { width: 100%; height: auto; display: block; }
 
-/* anneau de sens de rotation */
+/* flèches qui tournent autour des piles, dans le sens du jeu */
 .dir-ring {
-  position: absolute; left: 50%; top: 50%; width: 356px; height: 232px;
-  margin: -116px 0 0 -178px; pointer-events: none;
+  --ring-r: calc(var(--cw) * 1.62);
+  position: absolute; left: 50%; top: 50%;
+  width: calc(var(--ring-r) * 2); height: calc(var(--ring-r) * 2);
+  margin: calc(var(--ring-r) * -1) 0 0 calc(var(--ring-r) * -1);
+  pointer-events: none; transform: translateZ(5px);
 }
-.dir-ring .arrow {
-  position: absolute; width: 15px; height: 15px;
-  background: rgba(255,255,255,.55);
-  clip-path: polygon(0 0, 100% 50%, 0 100%, 26% 50%);
-  filter: drop-shadow(0 2px 4px rgba(0,0,0,.6));
-  animation: chase 3.2s ease-in-out infinite;
+.dir-ring.ccw { transform: translateZ(5px) scaleX(-1); }
+.orbit { position: absolute; inset: 0; animation: orbit 9s linear infinite; }
+@keyframes orbit { to { transform: rotate(360deg); } }
+.orbit i {
+  position: absolute; left: 50%; top: 50%;
+  width: 30px; height: 27px; margin: -13px 0 0 -15px;
+  background: rgba(255,255,255,.85);
+  clip-path: polygon(0 6%, 100% 50%, 0 94%, 32% 50%);
+  transform: rotate(var(--a)) translateY(calc(var(--ring-r) * -1)) rotate(90deg);
+  filter: drop-shadow(0 2px 5px rgba(0,0,0,.8));
 }
-.dir-ring .a1 { top: -8px;    left: 50%; transform: translateX(-50%); animation-delay: 0s; }
-.dir-ring .a2 { right: -12px; top: 50%;  transform: translateY(-50%) rotate(90deg);  animation-delay: .28s; }
-.dir-ring .a3 { bottom: -8px; left: 50%; transform: translateX(-50%) rotate(180deg); animation-delay: .56s; }
-.dir-ring .a4 { left: -12px;  top: 50%;  transform: translateY(-50%) rotate(270deg); animation-delay: .84s; }
-.dir-ring.ccw { transform: scaleX(-1); }
-@keyframes chase { 0%, 70%, 100% { opacity: .28; } 20% { opacity: .95; } }
 
 /* piles centrales */
 .center {
@@ -599,7 +600,7 @@ body.muted .sound-btn .ico-on { display: none; }
   background: conic-gradient(from 45deg, var(--red) 0 25%, var(--blue) 0 50%, var(--green) 0 75%, var(--yellow) 0); }
 /* main du coéquipier ramenée près de la sienne (petits écrans) */
 .ally-strip {
-  display: none; align-items: center; gap: 9px;
+  display: none; flex: none; align-items: center; gap: 9px;
   max-width: 96vw; margin-bottom: 7px; padding: 5px 10px;
   background: rgba(0,166,81,.13); border: 1px solid rgba(0,166,81,.3);
   border-radius: 12px;
@@ -651,7 +652,7 @@ kbd {
 
 /* ══════════════════════ ma zone ══════════════════════ */
 .myzone {
-  position: absolute; left: 0; right: 0; bottom: 0; height: calc(var(--ch) + 116px);
+  position: absolute; left: 0; right: 0; bottom: 0;
   display: flex; flex-direction: column; align-items: center; justify-content: flex-end;
   padding-bottom: 14px; z-index: 20;
   background: linear-gradient(to top, rgba(4,5,9,.96) 30%, rgba(4,5,9,.6) 68%, transparent);
@@ -666,7 +667,8 @@ kbd {
   animation: pulse 1.5s ease-in-out infinite;
 }
 .hand {
-  position: relative; height: calc(var(--ch) + 16px); width: 100%;
+  position: relative; flex: none; width: 100%;
+  height: calc(var(--ch) + 30px);
   display: flex; justify-content: center; align-items: flex-end;
   perspective: 1100px;
 }
@@ -698,7 +700,7 @@ kbd {
 /* main trop fournie ou écran étroit : on fait défiler au doigt */
 .hand.scroll {
   display: flex; align-items: flex-end; justify-content: flex-start;
-  gap: 8px; padding: 0 16px 8px;
+  gap: 8px; padding: 14px 16px 8px;
   overflow-x: auto; overflow-y: hidden;
   perspective: none; overscroll-behavior-x: contain;
   -webkit-overflow-scrolling: touch;
@@ -735,17 +737,6 @@ kbd {
 .btn.action.uno.armed { background: linear-gradient(170deg, #FFE95C, var(--yellow)); --lip: var(--yellow-d); color: #2E2400; box-shadow: 0 4px 0 var(--lip), 0 0 26px rgba(255,222,23,.5); }
 
 /* ══════════════════════ journal, toasts, confettis ══════════════════════ */
-.logpanel {
-  position: absolute; left: 14px; top: 64px; width: 268px; max-height: 42vh;
-  background: rgba(9,11,18,.9); border: 1px solid var(--line); border-radius: 15px;
-  padding: 14px 16px; overflow-y: auto; z-index: 25; backdrop-filter: blur(12px);
-  box-shadow: 0 20px 44px rgba(0,0,0,.5);
-}
-.logpanel h4 { font-size: 10.5px; text-transform: uppercase; letter-spacing: .14em; color: var(--muted); margin-bottom: 10px; }
-.logpanel ul { list-style: none; display: grid; gap: 7px; }
-.logpanel li { font-size: 12.5px; color: #BFC6D6; line-height: 1.45; padding-left: 10px; border-left: 2px solid rgba(255,255,255,.14); }
-.logpanel li.hl { border-left-color: var(--gold); color: var(--txt); }
-
 .toasts { position: absolute; left: 50%; top: 80px; transform: translateX(-50%); display: grid; gap: 8px; z-index: 40; pointer-events: none; justify-items: center; }
 .toast {
   background: rgba(10,12,20,.94); border: 1px solid var(--line);
@@ -842,7 +833,6 @@ body.is-host .non-host { display: none !important; }
 @media (max-width: 900px) {
   .seat-left  { left: 1%; transform: translate(0, -50%) translateZ(36px) scale(.88); }
   .seat-right { right: 1%; transform: translate(0, -50%) translateZ(36px) scale(.88); }
-  .logpanel { width: 214px; }
 }
 
 /* ─── interface téléphone ───────────────────────────────────────────
@@ -850,7 +840,7 @@ body.is-host .non-host { display: none !important; }
    devient une table verticale arrondie, les adversaires passent en
    bandeau, et tout ce qui se touche grossit.                        */
 @media (max-width: 600px) {
-  .scene { inset: 48px 0 calc(var(--ch) + 138px) 0; padding: 0 8px; }
+  .scene { inset: 48px 0 calc(var(--ch) + 132px) 0; padding: 0 8px; }
   .table3d {
     height: 100%; width: 100%; max-width: none; aspect-ratio: auto;
     transform: rotateX(9deg);
@@ -860,7 +850,8 @@ body.is-host .non-host { display: none !important; }
   .felt { border-radius: 22px; }
   .felt::after { inset: 10px; border-radius: 16px; }
   .felt-mark { top: 80%; width: 58%; opacity: .07; }
-  .dir-ring { display: none; }
+  .dir-ring { --ring-r: calc(var(--cw) * 2.15); }
+  .orbit i { width: 20px; height: 18px; margin: -9px 0 0 -10px; }
 
   /* adversaires en bandeau sur toute la largeur */
   .seat-left  { left: 6px;  top: 6px; transform: translateZ(14px); transform-origin: top left; }
@@ -882,7 +873,10 @@ body.is-host .non-host { display: none !important; }
   .player-box { max-width: 112px; }
   .pb-meta .pm-score, .pb-meta .pm-side, .pb-meta .pm-bot { display: none; }
   .pb-meta { white-space: nowrap; }
-  .uno-badge { top: -8px; right: -6px; font-size: 9.5px; padding: 3px 7px; }
+  .uno-badge {
+    top: -10px; right: auto; left: 50%; translate: -50% 0;
+    font-size: 9.5px; padding: 3px 8px;
+  }
 
   /* la pioche et la défausse restent bien lisibles au centre */
   .center { --cw: clamp(84px, 23vw, 104px); --ch: calc(var(--cw) * 1.5); gap: 16px; }
@@ -893,7 +887,7 @@ body.is-host .non-host { display: none !important; }
   }
 
   /* zone du joueur : cibles tactiles confortables */
-  .myzone { height: calc(var(--ch) + 138px); padding-bottom: 10px; }
+  .myzone { padding-bottom: 10px; }
   .me-bar { font-size: 12px; gap: 6px; }
   .me-score, .me-team { font-size: 11px; padding: 3px 8px; }
   .me-team { max-width: 42vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -907,7 +901,6 @@ body.is-host .non-host { display: none !important; }
   #hud-mode, #btn-help { display: none; }
   .chip { padding: 6px 9px; font-size: 11.5px; white-space: nowrap; }
   .btn-tiny { padding: 7px 11px; font-size: 12px; }
-  .logpanel { left: 8px; right: 8px; width: auto; top: 52px; max-height: 34vh; }
   .toasts { top: 56px; width: 92vw; }
   .toast { font-size: 13px; padding: 9px 14px; }
   .sound-dock { top: 10px; right: 10px; }
@@ -943,12 +936,14 @@ body.is-host .non-host { display: none !important; }
   :root { --cw: clamp(46px, 12.5vh, 84px); }
   .hud { padding: 8px 12px; padding-right: 54px; }
   .scene { inset: 40px 0 calc(var(--ch) * 0.55 + 60px) 0; }
-  .myzone { height: calc(var(--ch) + 74px); padding-bottom: 6px; }
+  .myzone { padding-bottom: 6px; }
   .me-bar { margin-bottom: 2px; font-size: 11px; gap: 6px; }
   .me-score, .me-team { font-size: 10.5px; padding: 2px 7px; }
   .actions { margin-top: 6px; }
   .btn.action { padding: 8px 12px; font-size: 12.5px; min-width: 86px; }
   .felt-mark, .pile-count { display: none; }
+  .dir-ring { --ring-r: calc(var(--cw) * 1.9); }
+  .orbit i { width: 17px; height: 16px; margin: -8px 0 0 -8px; }
   .player-box { min-width: 0; max-width: 132px; padding: 5px 8px 6px; gap: 3px; }
   .pb-avatar { width: 20px; height: 20px; font-size: 9px; border-radius: 6px; }
   .pb-name { font-size: 10.5px; max-width: 66px; }
@@ -963,7 +958,10 @@ body.is-host .non-host { display: none !important; }
   .mini.face b { font-size: 9px; }
   .mini.face b svg, .mini.face b .cw { width: 9px; height: 9px; }
   .ally-strip { display: none; }
-  .uno-badge { top: -8px; right: -4px; font-size: 8.5px; padding: 2px 6px; border-width: 1.5px; }
+  .uno-badge {
+    top: -9px; right: auto; left: 50%; translate: -50% 0;
+    font-size: 8.5px; padding: 2px 7px; border-width: 1.5px;
+  }
   .chip { padding: 5px 8px; font-size: 11px; }
   #hud-mode, #btn-help { display: none; }
 }
