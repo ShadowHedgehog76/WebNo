@@ -7,8 +7,14 @@ import * as ui from './ui.js';
 import * as audio from './audio.js';
 
 const $ = (id) => document.getElementById(id);
-const MAX_PLAYERS = 4;
-const BOT_NAMES = ['Robo-Léa', 'Robo-Max', 'Robo-Zoé', 'Robo-Nino', 'Robo-Iris'];
+const BOT_NAMES = ['Léa', 'Max', 'Zoé', 'Nino', 'Iris', 'Sacha', 'Milo', 'Nora', 'Tao', 'Lila',
+  'Enzo', 'Jade', 'Otis', 'Rêva', 'Kais', 'Anouk', 'Basile', 'Cléo', 'Diego', 'Elsa',
+  'Fabio', 'Gaia', 'Hugo', 'Inès'];
+
+/** Places disponibles : en party l'hôte observe, il occupe une place en plus. */
+function maxPlayers(settings) {
+  return settings.mode === 'party' ? settings.partySize + 1 : 4;
+}
 const HOST_ID = 'p0';
 
 const App = {
@@ -53,7 +59,7 @@ class Host {
     if (msg.t === 'hello') {
       if (this.byPeer(peerId)) return;
       if (this.game) { this.net.send(peerId, { t: 'error', msg: 'La partie a déjà commencé.', fatal: true }); return; }
-      if (this.players.length >= MAX_PLAYERS) { this.net.send(peerId, { t: 'error', msg: 'La room est complète.', fatal: true }); return; }
+      if (this.players.length >= maxPlayers(this.settings)) { this.net.send(peerId, { t: 'error', msg: 'La room est complète.', fatal: true }); return; }
       const name = sanitizeName(msg.name, this.players.map((p) => p.name));
       this.players.push({ id: this.newId(), name, isHost: false, isBot: false, peerId });
       audio.sfx('join');
@@ -89,14 +95,33 @@ class Host {
   }
 
   addBot() {
-    if (this.players.length >= MAX_PLAYERS) return;
+    if (this.players.length >= maxPlayers(this.settings)) return;
     const used = new Set(this.players.map((p) => p.name));
-    const name = BOT_NAMES.find((n) => !used.has(n)) || 'Bot ' + this.players.length;
+    const name = BOT_NAMES.map((n) => 'Robo-' + n).find((n) => !used.has(n)) || 'Robo ' + this.players.length;
     this.players.push({ id: this.newId(), name, isHost: false, isBot: true, peerId: null });
     this.syncLobby();
   }
 
-  fillBots() { while (this.players.length < MAX_PLAYERS) this.addBot(); }
+  fillBots() {
+    const cap = maxPlayers(this.settings);
+    while (this.players.length < cap) {
+      const before = this.players.length;
+      this.addBot();
+      if (this.players.length === before) break;
+    }
+  }
+
+  /** Mélange l'ordre des joueurs : les sièges déterminent les groupes. */
+  shuffleGroups() {
+    const host = this.players.filter((p) => p.isHost);
+    const rest = this.players.filter((p) => !p.isHost);
+    for (let i = rest.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [rest[i], rest[j]] = [rest[j], rest[i]];
+    }
+    this.players = [...host, ...rest];
+    this.syncLobby();
+  }
 
   kick(id) {
     const p = this.players.find((x) => x.id === id);
@@ -116,6 +141,14 @@ class Host {
 
   setSetting(key, value) {
     this.settings[key] = value;
+    if (key === 'mode' && value !== 'party') {
+      // on repasse à quatre places : les surnuméraires quittent la room
+      while (this.players.length > 4) {
+        const last = this.players[this.players.length - 1];
+        if (last.peerId) this.net.kick(last.peerId);
+        this.players.pop();
+      }
+    }
     this.syncLobby();
   }
 
@@ -123,8 +156,16 @@ class Host {
     return {
       code: this.code,
       settings: this.settings,
+      maxPlayers: maxPlayers(this.settings),
       players: this.players.map((p) => ({ id: p.id, name: p.name, isHost: p.isHost, isBot: p.isBot })),
     };
+  }
+
+  /** Les joueurs assis à la table : en party, l'hôte en est exclu. */
+  roster() {
+    return this.settings.mode === 'party'
+      ? this.players.filter((p) => !p.isHost)
+      : this.players;
   }
 
   syncLobby() {
@@ -137,7 +178,7 @@ class Host {
 
   start() {
     this.game = new UnoGame(
-      this.players.map((p) => ({ id: p.id, name: p.name, isBot: p.isBot, connected: true })),
+      this.roster().map((p) => ({ id: p.id, name: p.name, isBot: p.isBot, connected: true })),
       this.settings
     );
     this.game.startRound();
@@ -236,7 +277,7 @@ class Host {
     const cur = g.current;
     if (cur.id !== this.lastTurnId) {
       this.lastTurnId = cur.id;
-      this.actAt = now + botDelay(g.settings.botLevel);
+      this.actAt = now + botDelay(g.settings.botLevel) * this.paceFactor();
       return;
     }
     if (!cur.isBot || now < this.actAt) return;
@@ -245,12 +286,18 @@ class Host {
     let res = g.handle(cur.id, action);
     if (!res.ok) res = g.handle(cur.id, { type: 'draw' });   // filet de sécurité
     if (!res.ok) g.handle(cur.id, { type: 'pass' });
-    this.actAt = now + botDelay(g.settings.botLevel);
+    this.actAt = now + botDelay(g.settings.botLevel) * this.paceFactor();
     this.afterChange();
   }
 
+  /** Une grande tablée doit tourner plus vite pour rester regardable. */
+  paceFactor() {
+    const n = this.game ? this.game.players.length : 4;
+    return n >= 20 ? 0.42 : (n >= 10 ? 0.6 : 1);
+  }
+
   localAction(action) {
-    if (!this.game) return;
+    if (!this.game || !this.game.byId(HOST_ID)) return;   // hôte spectateur
     const res = this.game.handle(HOST_ID, action);
     if (!res.ok) { ui.toast(res.error, 'bad'); audio.sfx('error'); }
     this.afterChange();
@@ -334,7 +381,7 @@ function sanitizeName(raw, taken = []) {
 
 function renderLobbyLocal(payload, isHost) {
   ui.setRole(isHost);
-  ui.renderLobby({ ...payload, isHost, maxPlayers: MAX_PLAYERS }, {
+  ui.renderLobby({ ...payload, isHost, maxPlayers: payload.maxPlayers || 4 }, {
     onKick: (id) => App.host && App.host.kick(id),
     onMove: (id) => App.host && App.host.move(id),
   });
@@ -495,6 +542,7 @@ function wireLobby() {
   };
   $('btn-add-bot').onclick = () => App.host && App.host.addBot();
   $('btn-fill-bots').onclick = () => App.host && App.host.fillBots();
+  $('btn-shuffle-groups').onclick = () => App.host && App.host.shuffleGroups();
   $('btn-start').onclick = () => App.host && App.host.start();
   $('btn-lobby-leave').onclick = () => leave();
 
@@ -504,7 +552,7 @@ function wireLobby() {
       if (!b || !App.host) return;
       const key = seg.dataset.setting;
       let val = b.dataset.value;
-      if (key === 'targetScore') val = Number(val);
+      if (key === 'targetScore' || key === 'partySize') val = Number(val);
       App.host.setSetting(key, val);
     });
   }

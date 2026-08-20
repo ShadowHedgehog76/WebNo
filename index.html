@@ -122,7 +122,9 @@
             <div class="seg" data-setting="mode">
               <button data-value="solo" class="on">Chacun pour soi</button>
               <button data-value="team">Équipes 2 v 2</button>
+              <button data-value="party">Party</button>
             </div>
+            <p class="set-note" id="mode-note" hidden></p>
           </div>
 
           <div class="set-group">
@@ -137,6 +139,15 @@
               <span class="sw-text"><b>Bluff sur le +4</b><em>Désactivé : le +4 ne se conteste pas</em></span></label>
             <label class="switch" data-setting="unoRule"><input type="checkbox" checked /><span class="track"></span>
               <span class="sw-text"><b>Annonce « UNO »</b><em>Oubli dénonçable : +2 cartes</em></span></label>
+          </div>
+
+          <div class="set-group" id="party-opts" hidden>
+            <span class="set-title">Palier</span>
+            <div class="seg small" data-setting="partySize">
+              <button data-value="12" class="on">12 joueurs</button>
+              <button data-value="24">24 joueurs</button>
+            </div>
+            <button class="btn btn-ghost btn-tiny host-only" id="btn-shuffle-groups">Mélanger les groupes</button>
           </div>
 
           <div class="set-group">
@@ -185,6 +196,14 @@
       <button class="btn btn-tiny danger" id="btn-quit">Quitter</button>
     </div>
   </header>
+
+  <aside class="party-list" id="party-list" hidden>
+    <h4>Ordre de jeu <span class="po-total" id="party-total"></span></h4>
+    <ol id="party-order"></ol>
+  </aside>
+
+  <div class="lap-strip" id="lap-strip" hidden></div>
+  <div class="lap-banner" id="lap-banner" hidden><b id="lap-banner-title"></b><em id="lap-banner-sub"></em></div>
 
   <div class="scene">
     <div class="table3d" id="table3d">

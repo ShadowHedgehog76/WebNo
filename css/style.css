@@ -987,3 +987,150 @@ body.is-host .non-host { display: none !important; }
   border-radius: 50%; border: 1.5px solid #fff;
   background: conic-gradient(from 45deg, var(--red) 0 25%, var(--blue) 0 50%, var(--green) 0 75%, var(--yellow) 0);
 }
+
+/* ══════════════════════ mode party ══════════════════════
+   L'hôte observe : pas de main, une liste d'ordre à gauche, et un bandeau
+   qui montre les quatre joueurs du tour en cours, un par groupe.          */
+.g1 { --grp: #ED1C24; --grp-ink: #fff; }
+.g2 { --grp: #0072BC; --grp-ink: #fff; }
+.g3 { --grp: #00A651; --grp-ink: #fff; }
+.g4 { --grp: #FFDE17; --grp-ink: #2E2400; }
+
+.set-note { font-size: 12px; color: var(--muted); line-height: 1.4; margin-top: -2px; }
+.tag.grp { background: color-mix(in srgb, var(--grp) 26%, transparent); color: var(--grp); font-family: var(--display); font-style: italic; letter-spacing: 0; }
+.tag.grp.g4 { color: #FFE873; }
+.players.compact li { padding: 7px 10px; font-size: 13.5px; gap: 8px; }
+.players.compact .avatar { width: 26px; height: 26px; font-size: 12px; border-radius: 8px; }
+.players.compact { max-height: 46vh; overflow-y: auto; scrollbar-width: thin; }
+.players li.summary { justify-content: flex-start; }
+
+/* liste d'ordre de jeu */
+.party-list {
+  position: absolute; left: 12px; top: 56px; width: 252px;
+  height: auto; max-height: calc(100% - var(--ch) - 148px);
+  background: rgba(9,11,18,.88); border: 1px solid var(--line); border-radius: 16px;
+  padding: 12px 8px 8px; z-index: 26; display: flex; flex-direction: column;
+  box-shadow: 0 20px 44px rgba(0,0,0,.55);
+}
+body.is-spectator .party-list { max-height: calc(100% - 72px); }
+.party-list h4 {
+  font-size: 10.5px; text-transform: uppercase; letter-spacing: .13em; color: var(--muted);
+  margin: 0 6px 8px; display: flex; justify-content: space-between; gap: 6px; align-items: baseline;
+}
+.po-total { font-size: 10px; color: #6B7385; text-transform: none; letter-spacing: 0; }
+#party-order {
+  list-style: none; margin: 0; padding: 0 4px 0 0; overflow-y: auto; flex: 0 1 auto; min-height: 0;
+  scrollbar-width: thin; scrollbar-color: rgba(255,255,255,.22) transparent;
+  scroll-behavior: smooth;
+}
+#party-order::-webkit-scrollbar { width: 6px; }
+#party-order::-webkit-scrollbar-thumb { background: rgba(255,255,255,.22); border-radius: 3px; }
+.po {
+  display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-radius: 9px;
+  font-size: 13px; border-left: 3px solid var(--grp); margin-bottom: 3px;
+  background: rgba(255,255,255,.03); transition: background .2s, transform .2s var(--ease);
+}
+.po-slot {
+  font-family: var(--display); font-style: italic; font-size: 11px;
+  background: var(--grp); color: var(--grp-ink); padding: 2px 6px; border-radius: 5px; flex: none;
+}
+.po-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 500; }
+.po-cards { font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.po.now {
+  background: rgba(255,201,60,.16); transform: translateX(3px);
+  box-shadow: inset 0 0 0 1px rgba(255,201,60,.45);
+}
+.po.now .po-name { color: var(--gold); font-weight: 700; }
+.po.uno .po-cards { color: #FF938E; font-weight: 800; }
+.po.out { opacity: .45; }
+.po.out .po-cards::after { content: ' ✓'; color: #6EE39B; }
+.po.off { opacity: .5; font-style: italic; }
+
+/* bandeau des quatre joueurs du tour */
+.lap-strip {
+  position: absolute; top: 58px; left: 280px; right: 16px; z-index: 24;
+  display: flex; justify-content: center; gap: 10px; pointer-events: none; flex-wrap: wrap;
+}
+.lap-card {
+  display: flex; align-items: center; gap: 8px; padding: 7px 12px;
+  background: rgba(10,13,20,.9); border: 1px solid var(--line); border-radius: 12px;
+  border-top: 3px solid var(--grp);
+  box-shadow: 0 10px 24px rgba(0,0,0,.5);
+  transition: transform .25s var(--ease), box-shadow .25s, border-color .25s;
+}
+.lap-strip.swap .lap-card { animation: lapIn .42s var(--ease) backwards; }
+.lap-strip.swap .lap-card:nth-child(2) { animation-delay: .06s; }
+.lap-strip.swap .lap-card:nth-child(3) { animation-delay: .12s; }
+.lap-strip.swap .lap-card:nth-child(4) { animation-delay: .18s; }
+@keyframes lapIn { from { opacity: 0; transform: translateY(-22px) scale(.9); } }
+.lc-slot {
+  font-family: var(--display); font-style: italic; font-size: 12px;
+  background: var(--grp); color: var(--grp-ink); padding: 2px 7px; border-radius: 6px;
+}
+.lc-name { font-size: 13.5px; font-weight: 600; max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lc-cards { font-size: 11.5px; color: var(--muted); }
+.lap-card.now {
+  border-color: var(--gold);
+  box-shadow: 0 0 0 2px rgba(255,201,60,.4), 0 14px 30px rgba(0,0,0,.55);
+  transform: translateY(4px) scale(1.05);
+}
+
+/* annonce « tour suivant » */
+.lap-banner {
+  position: absolute; left: 50%; top: 42%; z-index: 60;
+  translate: -50% -50%; text-align: center; pointer-events: none;
+  padding: 18px 42px; border-radius: 20px;
+  background: rgba(10,13,20,.92); border: 1px solid var(--line);
+  box-shadow: 0 26px 60px rgba(0,0,0,.65);
+}
+.lap-banner b {
+  display: block; font-family: var(--display); font-style: italic; font-size: 34px;
+  color: var(--gold); text-shadow: 0 4px 0 rgba(0,0,0,.4);
+}
+.lap-banner em { display: block; font-style: normal; font-size: 13px; color: var(--muted); margin-top: 4px; }
+.lap-banner.show { animation: lapAnnounce 1.9s var(--ease) forwards; }
+@keyframes lapAnnounce {
+  0%   { opacity: 0; scale: .82; }
+  14%  { opacity: 1; scale: 1.04; }
+  22%  { scale: 1; }
+  78%  { opacity: 1; scale: 1; }
+  100% { opacity: 0; scale: 1.06; }
+}
+
+/* la table en mode party : pas de sièges, place à la liste */
+body.is-party .seat { display: none; }
+/* la table se mesure sur l'espace laissé par la liste, pas sur la fenêtre.
+   La perspective élargit le rendu d'environ 8 %, la borne en tient compte. */
+body.is-party .table3d { max-width: calc(78vw - 300px); }
+body.is-party .scene { left: 280px; top: 108px; }
+body.is-spectator .myzone,
+body.is-spectator .ally-strip { display: none; }
+body.is-spectator .scene { bottom: 16px; }
+body.is-spectator .table3d { height: min(600px, 74%); }
+body.is-spectator .center { --cw: clamp(112px, 10vw, 176px); --ch: calc(var(--cw) * 1.5); gap: 40px; }
+body.is-spectator .dir-ring { --ring-r: calc(var(--cw) * 2.6); }
+body.is-spectator .orbit i { width: 38px; height: 34px; margin: -17px 0 0 -19px; }
+body.is-spectator .pile-count { bottom: -26px; font-size: 13px; }
+body.is-spectator #deck-pile { cursor: default; }
+body.is-spectator #deck-pile.can-draw { animation: none; }
+
+@media (max-width: 1000px) {
+  .party-list { width: 200px; }
+  body.is-party .table3d { max-width: calc(80vw - 240px); }
+  body.is-party .scene { left: 224px; }
+  .lap-strip { left: 224px; gap: 6px; }
+  .lap-card { padding: 6px 9px; gap: 6px; }
+  .lc-name { max-width: 74px; font-size: 12px; }
+  .lc-cards { display: none; }
+}
+@media (max-width: 700px) {
+  .party-list {
+    left: 8px; right: 8px; width: auto; top: auto; bottom: 8px; height: 34vh;
+  }
+  body.is-party .scene { left: 0; top: 104px; bottom: 36vh; }
+  body.is-party .table3d { max-width: 88vw; }
+  body.is-spectator .scene { bottom: 36vh; }
+  .lap-strip { left: 8px; right: 8px; top: 52px; }
+  .lap-banner { padding: 14px 26px; }
+  .lap-banner b { font-size: 26px; }
+}

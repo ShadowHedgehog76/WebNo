@@ -1,8 +1,13 @@
 // engine.js — moteur de jeu UNO autoritaire (tourne uniquement chez l'hôte)
-import { buildDeck, shuffle, isWild, isNumber, cardPoints, cardLabel, COLORS, COLOR_LABEL } from './deck.js';
+import { buildDeck, decksNeeded, shuffle, isWild, isNumber, cardPoints, cardLabel, COLORS, COLOR_LABEL } from './deck.js';
+
+/** Nombre de groupes selon le mode. En party, les sièges alternent entre les
+ *  4 groupes : le siège n appartient au groupe n % 4, ce qui donne l'ordre
+ *  de jeu 1-1, 1-2, 1-3, 1-4, puis 2-1, 2-2… */
+export const GROUP_COUNT = { solo: 2, team: 2, party: 4 };
 
 export const DEFAULT_SETTINGS = {
-  mode: 'solo',            // 'solo' | 'team'
+  mode: 'solo',            // 'solo' | 'team' | 'party'
   stacking: true,          // Accumulation des +2 / +4
   sevenZero: true,         // Règle 7-0
   jumpIn: true,            // À la volée
@@ -10,6 +15,7 @@ export const DEFAULT_SETTINGS = {
   unoRule: true,           // Obligation de dire UNO
   winCondition: 'points',  // 'points' | 'single'
   targetScore: 500,
+  partySize: 12,           // mode party : 12 ou 24 joueurs (hôte non compté)
   botLevel: 'normal',      // 'easy' | 'normal' | 'hard'
   startCards: 7,
 };
@@ -18,13 +24,14 @@ export class UnoGame {
   /** @param players [{id, name, isBot, connected}] — 2 à 4 joueurs */
   constructor(players, settings) {
     this.settings = { ...DEFAULT_SETTINGS, ...settings };
+    this.groups = GROUP_COUNT[this.settings.mode] || 2;
     this.players = players.map((p, i) => ({
       id: p.id,
       name: p.name,
       isBot: !!p.isBot,
       connected: p.connected !== false,
       seat: i,
-      team: i % 2,           // équipes : sièges 0/2 contre 1/3
+      team: i % this.groups, // sièges alternés : le groupe se lit dans la place
       score: 0,
       hand: [],
       mustCallUno: false,
@@ -52,16 +59,24 @@ export class UnoGame {
 
   topCard() { return this.discard[this.discard.length - 1]; }
 
-  teamOf(player) { return this.settings.mode === 'team' ? player.team : player.seat; }
+  /** Le jeu se compte-t-il par groupes ? */
+  isTeamPlay() { return this.settings.mode === 'team' || this.settings.mode === 'party'; }
+
+  teamOf(player) { return this.isTeamPlay() ? player.team : player.seat; }
 
   areAllies(a, b) {
-    return this.settings.mode === 'team' && a.id !== b.id && a.team === b.team;
+    return this.isTeamPlay() && a.id !== b.id && a.team === b.team;
+  }
+
+  /** Repère d'un joueur en mode party : « 2-3 » = 2ᵉ joueur du groupe 3. */
+  slotLabel(player) {
+    return `${Math.floor(player.seat / this.groups) + 1}-${(player.seat % this.groups) + 1}`;
   }
 
   // ------------------------------------------------------------ round setup
   startRound() {
     this.roundNo++;
-    this.deck = shuffle(buildDeck());
+    this.deck = shuffle(buildDeck(decksNeeded(this.players.length, this.settings.startCards)));
     this.discard = [];
     this.direction = 1;
     this.pendingDraw = 0;
@@ -432,48 +447,46 @@ export class UnoGame {
     for (const p of this.players) {
       const pts = p.hand.reduce((s, c) => s + cardPoints(c), 0);
       detail.push({ id: p.id, name: p.name, cards: p.hand.length, points: pts });
-      const sameSide = this.settings.mode === 'team'
-        ? p.team === winner.team
-        : p.id === winner.id;
+      const sameSide = this.isTeamPlay() ? p.team === winner.team : p.id === winner.id;
       if (!sameSide) points += pts;
     }
 
-    if (this.settings.mode === 'team') {
+    if (this.isTeamPlay()) {
       for (const p of this.players) if (p.team === winner.team) p.score += points;
     } else {
       winner.score += points;
     }
 
-    const label = this.settings.mode === 'team'
-      ? `Équipe ${winner.team === 0 ? 'A' : 'B'}`
-      : winner.name;
+    const label = this.isTeamPlay() ? this.groupName(winner.team) : winner.name;
     this.say('win', `${winner.name} termine la manche ! ${label} marque ${points} points.`, { playerId: winner.id });
 
-    this.roundResult = { winnerId: winner.id, winnerName: winner.name, team: winner.team, points, detail };
+    this.roundResult = {
+      winnerId: winner.id, winnerName: winner.name, team: winner.team, points, detail,
+      label: this.isTeamPlay() ? this.groupName(winner.team) : null,
+    };
 
     // Condition de victoire
     let done = false;
     if (this.settings.winCondition === 'single') {
       done = true;
-    } else if (this.settings.mode === 'team') {
-      const teamScore = (t) => this.players.filter((p) => p.team === t).reduce((s, p) => Math.max(s, p.score), 0);
-      done = teamScore(0) >= this.settings.targetScore || teamScore(1) >= this.settings.targetScore;
+    } else if (this.isTeamPlay()) {
+      done = this.groupIndexes().some((t) => this.groupScore(t) >= this.settings.targetScore);
     } else {
       done = this.players.some((p) => p.score >= this.settings.targetScore);
     }
 
     if (done) {
       this.phase = 'gameEnd';
-      if (this.settings.mode === 'team') {
+      if (this.isTeamPlay()) {
         const t = this.settings.winCondition === 'single'
           ? winner.team
-          : (this.players.filter((p) => p.team === 0)[0].score >= this.settings.targetScore ? 0 : 1);
+          : this.groupIndexes().sort((a, b) => this.groupScore(b) - this.groupScore(a))[0];
         this.gameResult = {
-          type: 'team', team: t,
+          type: 'team', team: t, label: this.groupName(t),
           names: this.players.filter((p) => p.team === t).map((p) => p.name),
-          score: this.players.find((p) => p.team === t).score,
+          score: this.groupScore(t),
         };
-        this.say('gameover', `Victoire de l'équipe ${t === 0 ? 'A' : 'B'} (${this.gameResult.names.join(' & ')}) !`);
+        this.say('gameover', `Victoire du ${this.groupName(t).toLowerCase()} !`);
       } else {
         const best = [...this.players].sort((a, b) => b.score - a.score)[0];
         const champ = this.settings.winCondition === 'single' ? winner : best;
@@ -484,11 +497,29 @@ export class UnoGame {
     this.version++;
   }
 
+  groupIndexes() { return Array.from({ length: this.groups }, (_, i) => i); }
+
+  groupName(t) {
+    return this.settings.mode === 'party'
+      ? `Groupe ${t + 1}`
+      : `Équipe ${t === 0 ? 'A' : 'B'}`;
+  }
+
+  groupScore(t) {
+    const m = this.players.filter((p) => p.team === t);
+    return m.length ? Math.max(...m.map((p) => p.score)) : 0;
+  }
+
   teamScores() {
-    if (this.settings.mode !== 'team') return null;
-    return [0, 1].map((t) => {
+    if (!this.isTeamPlay()) return null;
+    return this.groupIndexes().map((t) => {
       const members = this.players.filter((p) => p.team === t);
-      return { team: t, names: members.map((p) => p.name), score: members.length ? members[0].score : 0 };
+      return {
+        team: t, name: this.groupName(t),
+        names: members.map((p) => p.name),
+        score: this.groupScore(t),
+        cards: members.reduce((n, p) => n + p.hand.length, 0),
+      };
     });
   }
 
@@ -501,13 +532,15 @@ export class UnoGame {
     const ally = me && this.settings.mode === 'team'
       ? this.players.find((p) => p.team === me.team && p.id !== me.id)
       : null;
-    const calloutTargets = this.settings.unoRule
+    const calloutTargets = (this.settings.unoRule && me)
       ? this.players.filter((p) => p.mustCallUno && p.id !== playerId).map((p) => p.id)
       : [];
     return {
       version: this.version,
       phase: this.phase,
       settings: this.settings,
+      spectator: !me,            // l'hôte du mode party observe sans jouer
+      groups: this.groups,
       roundNo: this.roundNo,
       you: playerId,
       turnId: this.phase === 'playing' ? this.current.id : null,
@@ -534,6 +567,9 @@ export class UnoGame {
         && me.id === this.current.id && this.pendingKind === 'wild4' && this.pendingDraw > 0,
       calloutTargets,
       teamScores: this.teamScores(),
+      turnSeat: this.phase === 'playing' ? this.turnIndex : null,
+      // en party : quel « tour de table » on joue (les nᵉˢ joueurs de chaque groupe)
+      lap: this.phase === 'playing' ? Math.floor(this.turnIndex / this.groups) + 1 : null,
       roundResult: this.roundResult,
       gameResult: this.gameResult,
       log: this.log.slice(-40),

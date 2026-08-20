@@ -12,7 +12,12 @@ les navigateurs se parlent directement en WebRTC (via [PeerJS](https://peerjs.co
   automatiquement différenciés.
 - **Bots** : l'hôte complète les places libres d'un clic. Trois niveaux (facile / normal / difficile).
   Un joueur qui se déconnecte est immédiatement repris par un bot, la partie continue.
-- **Deux modes** : *chacun pour soi*, ou *équipes 2 v 2* (les places 1-3 contre les places 2-4,
+- **Mode party** : 12 ou 24 joueurs répartis en 4 groupes, plus l'hôte qui **observe** sans jouer.
+  Les sièges alternent entre les groupes, si bien que l'ordre de jeu est `1-1 → 1-2 → 1-3 → 1-4`,
+  puis `2-1 → 2-2 → …` : les premiers joueurs de chaque groupe jouent, puis les deuxièmes, etc.
+  Une liste défilante à gauche donne l'ordre complet, un bandeau met en avant les quatre joueurs
+  du tour en cours, et un changement de tour est annoncé à l'écran. Les groupes sont mélangeables.
+- **Deux autres modes** : *chacun pour soi*, ou *équipes 2 v 2* (les places 1-3 contre les places 2-4,
   l'hôte peut permuter les joueurs avec le bouton ⇅). En équipes, **les coéquipiers jouent à
   cartes ouvertes** : la main de votre partenaire s'affiche triée sur sa plaque.
 - **Victoire** : au score (200 / 300 / 500 points, décompte UNO classique) ou en une seule manche.

@@ -22,9 +22,19 @@ function makeCard(color, value) {
   return { id: 'c' + (++uid), color, value };
 }
 
-/** Paquet standard de 108 cartes. */
-export function buildDeck() {
+/** Paquet standard de 108 cartes, ou plusieurs paquets mélangés ensemble. */
+export function buildDeck(copies = 1) {
   const deck = [];
+  for (let c = 0; c < copies; c++) buildOne(deck);
+  return deck;
+}
+
+/** Nombre de paquets nécessaires pour distribuer n mains et garder une pioche. */
+export function decksNeeded(n, startCards = 7) {
+  return Math.max(1, Math.ceil((n * startCards + 40) / 108));
+}
+
+function buildOne(deck) {
   for (const color of COLORS) {
     deck.push(makeCard(color, '0'));
     for (let n = 1; n <= 9; n++) {
@@ -40,7 +50,6 @@ export function buildDeck() {
     deck.push(makeCard('wild', 'wild'));
     deck.push(makeCard('wild', 'wild4'));
   }
-  return deck;
 }
 
 export function shuffle(arr, rng = Math.random) {
