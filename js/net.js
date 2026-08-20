@@ -14,6 +14,19 @@ export function normalizeCode(str) {
   return (str || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 5);
 }
 
+/**
+ * Code de room contenu dans un texte scanné : soit l'ancre d'un lien
+ * d'invitation, soit le code seul. Tout le reste est rejeté — mieux vaut
+ * ne rien trouver que d'inventer un code à partir d'un lien quelconque.
+ */
+export function codeFromScan(text) {
+  const raw = String(text || '').trim();
+  const hash = raw.match(/#([A-Za-z0-9]{5})(?![A-Za-z0-9])/);
+  if (hash) return normalizeCode(hash[1]);
+  if (/^[A-Za-z0-9]{5}$/.test(raw)) return normalizeCode(raw);
+  return null;
+}
+
 class Emitter {
   constructor() { this._h = {}; }
   on(evt, fn) { (this._h[evt] ||= []).push(fn); return this; }

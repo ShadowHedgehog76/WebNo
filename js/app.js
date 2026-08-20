@@ -1,7 +1,7 @@
 // app.js — orchestration : accueil, salon, boucle hôte (moteur + IA), client
 import { UnoGame, DEFAULT_SETTINGS } from './engine.js';
 import { botDecide, botJumpIn, botCallout, botDelay, botProfile } from './bot.js';
-import { HostNet, ClientNet, normalizeCode } from './net.js';
+import { HostNet, ClientNet, normalizeCode, codeFromScan } from './net.js';
 import { isWild } from './deck.js';
 import * as ui from './ui.js';
 import * as audio from './audio.js';
@@ -529,14 +529,27 @@ function wireHome() {
     }
   };
 
+  document.body.classList.toggle('can-scan', canScan());
+  $('btn-scan').onclick = () => openScanner();
+  $('overlay-scan').querySelector('[data-cancel]').onclick = () => stopScanner();
+
   codeInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') $('btn-join').click(); });
   nameInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') $('btn-create').click(); });
 }
 
 function wireLobby() {
+  $('qr-box').onclick = () => {
+    const code = $('code-value').textContent;
+    if (!code || code === '-----') return;
+    $('qr-big-code').textContent = code;
+    $('qr-big').innerHTML = $('qr-box').innerHTML;
+    $('overlay-qr').hidden = false;
+  };
+  $('overlay-qr').querySelector('[data-cancel]').onclick = () => { $('overlay-qr').hidden = true; };
+
   $('btn-copy').onclick = async () => {
     const code = $('code-value').textContent;
-    const link = location.origin + location.pathname + '#' + code;
+    const link = ui.joinUrl(code);
     try { await navigator.clipboard.writeText(link); ui.toast('Lien d\'invitation copié !'); }
     catch (_) { ui.toast('Code de la room : ' + code); }
   };
@@ -645,6 +658,68 @@ function wireGame() {
 }
 
 /* ── clavier ─────────────────────────────────────────────────────── */
+/* ── lecture d'un QR code par la caméra ────────────────────────────── */
+const canScan = () => typeof window.BarcodeDetector === 'function'
+  && !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
+
+let scanStream = null, scanTimer = null;
+
+function stopScanner() {
+  clearTimeout(scanTimer);
+  scanTimer = null;
+  if (scanStream) { scanStream.getTracks().forEach((t) => t.stop()); scanStream = null; }
+  const v = $('scan-video');
+  if (v) v.srcObject = null;
+  $('overlay-scan').hidden = true;
+}
+
+async function openScanner() {
+  const ov = $('overlay-scan'), video = $('scan-video'), note = $('scan-note');
+  note.textContent = "Visez le QR affiché sur l'écran de l'hôte.";
+  ov.hidden = false;
+  if (!canScan()) {
+    note.textContent = "Ce navigateur ne lit pas les QR codes. Utilisez l'appareil photo de votre "
+      + "téléphone : il ouvrira le lien de la partie directement.";
+    return;
+  }
+  try {
+    scanStream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: { ideal: 'environment' } }, audio: false,
+    });
+    video.srcObject = scanStream;
+    await video.play();
+  } catch (_) {
+    note.textContent = "Accès à la caméra refusé. Saisissez le code à la main, il fonctionne aussi.";
+    return;
+  }
+  const det = new window.BarcodeDetector({ formats: ['qr_code'] });
+  const loop = async () => {
+    if (ov.hidden) return;
+    try {
+      const found = await det.detect(video);
+      for (const b of found) {
+        const code = codeFromScan(b.rawValue);
+        if (code) { onScanned(code); return; }
+      }
+      if (found.length) note.textContent = "Ce QR ne mène pas à une partie WebNo.";
+    } catch (_) { /* image non exploitable, on réessaie */ }
+    scanTimer = setTimeout(loop, 220);
+  };
+  loop();
+}
+
+function onScanned(code) {
+  stopScanner();
+  audio.sfx('join');
+  $('input-code').value = code;
+  if ($('input-name').value.trim()) {
+    $('btn-join').click();
+  } else {
+    ui.toast(`Room ${code} trouvée — entrez votre pseudo`);
+    $('input-name').focus();
+  }
+}
+
 function moveSelection(dir) {
   const s = App.view;
   if (!s || !s.hand.length) return;
@@ -680,7 +755,7 @@ function wireKeyboard() {
       e.preventDefault(); return;
     }
     if (k === 'Escape') {
-      for (const id of ['overlay-help', 'overlay-color', 'overlay-target']) {
+      for (const id of ['overlay-help', 'overlay-scan', 'overlay-qr', 'overlay-color', 'overlay-target']) {
         const ov = $(id);
         if (!ov.hidden) { const c = ov.querySelector('[data-cancel]'); if (c) c.click(); e.preventDefault(); return; }
       }
@@ -752,8 +827,15 @@ function boot() {
   window.__webno = App;   // point d'accès pour le débogage / les tests
 
   // rejoindre directement via #CODE
+  // arrivée par un lien d'invitation ou un QR scanné avec l'appareil photo
   const hash = normalizeCode(location.hash.replace('#', ''));
-  if (hash.length === 5) $('input-code').value = hash;
+  if (hash.length === 5) {
+    $('input-code').value = hash;
+    setTimeout(() => {
+      ui.toast(`Room ${hash} — entrez votre pseudo pour rejoindre`);
+      $('input-name').focus();
+    }, 300);
+  }
 }
 
 // les modules sont différés : le DOM est prêt, mais on couvre le cas contraire

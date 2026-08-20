@@ -76,6 +76,10 @@
         <input id="input-code" type="text" maxlength="5" placeholder="CODE" class="code-input" autocomplete="off" spellcheck="false" />
         <button id="btn-join" class="btn btn-yellow">Entrer</button>
       </div>
+      <button id="btn-scan" class="btn btn-ghost btn-block scan-btn">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 8V5a2 2 0 0 1 2-2h3M16 3h3a2 2 0 0 1 2 2v3M21 16v3a2 2 0 0 1-2 2h-3M8 21H5a2 2 0 0 1-2-2v-3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><rect x="7.5" y="7.5" width="9" height="9" rx="1.5" fill="none" stroke="currentColor" stroke-width="2"/></svg>
+        Scanner un QR code
+      </button>
 
       <p id="home-error" class="error" hidden></p>
     </div>
@@ -100,6 +104,8 @@
       <div class="code-box" id="code-box">
         <span class="code-label">Code de la room</span>
         <div class="code-value" id="code-value">-----</div>
+        <button class="qr" id="qr-box" title="Agrandir le QR code" aria-label="Agrandir le QR code"></button>
+        <p class="qr-hint">Scannez avec l'appareil photo</p>
         <button class="btn btn-tiny" id="btn-copy">Copier le lien</button>
       </div>
     </header>
@@ -309,6 +315,24 @@
       <button class="btn btn-green host-only" id="btn-rematch">Revanche</button>
       <button class="btn btn-ghost" id="btn-home">Accueil</button>
     </div>
+  </div>
+</div>
+
+<div class="overlay" id="overlay-scan" hidden>
+  <div class="modal">
+    <h3>Scannez le QR code de l'hôte</h3>
+    <div class="scan-frame"><video id="scan-video" playsinline muted></video><span class="scan-reticle"></span></div>
+    <p class="modal-note" id="scan-note">Visez le QR affiché sur l'écran de l'hôte.</p>
+    <button class="btn btn-ghost btn-tiny" data-cancel>Annuler</button>
+  </div>
+</div>
+
+<div class="overlay" id="overlay-qr" hidden>
+  <div class="modal">
+    <h3 id="qr-big-code">-----</h3>
+    <div class="qr-big" id="qr-big"></div>
+    <p class="modal-note">Les joueurs scannent ce code avec l'appareil photo de leur téléphone.</p>
+    <button class="btn btn-ghost btn-tiny" data-cancel>Fermer</button>
   </div>
 </div>
 

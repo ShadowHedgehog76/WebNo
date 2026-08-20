@@ -6,8 +6,11 @@ les navigateurs se parlent directement en WebRTC (via [PeerJS](https://peerjs.co
 
 ## Ce que ça fait
 
-- **Salon avec code** : l'hôte crée la room, obtient un code à 5 caractères et le partage. Les joueurs
-  entrent le code (ou ouvrent le lien `…/#CODE`) pour rejoindre.
+- **Salon avec code et QR code** : l'hôte crée la room, obtient un code à 5 caractères, un lien
+  `…/#CODE` et un **QR code affiché à l'écran** (agrandissable d'un clic pour être scanné de loin —
+  pratique en mode party où douze personnes doivent rejoindre). Les joueurs le scannent avec
+  l'appareil photo de leur téléphone, ou depuis le jeu via le bouton « Scanner un QR code » quand
+  le navigateur sait lire les codes-barres. Le code peut toujours être saisi à la main.
 - **Pseudos** : chacun choisit le sien, mémorisé d'une partie à l'autre ; les doublons sont
   automatiquement différenciés.
 - **Bots** : l'hôte complète les places libres d'un clic. Trois niveaux (facile / normal / difficile).
@@ -83,6 +86,7 @@ autres, et toute action est revalidée par l'hôte.
 index.html          écrans : accueil, salon, table, overlays
 css/style.css       thème, cartes CSS, table 3D, responsive
 js/audio.js         synthèse des musiques et bruitages (Web Audio)
+js/qr.js            encodeur QR autonome (mode octet, correction M, versions 1 à 10)
 js/deck.js          modèle de cartes, paquet de 108, points
 js/engine.js        moteur autoritaire : règles, tours, manches, scores
 js/bot.js           IA des joueurs virtuels (heuristiques + niveaux)

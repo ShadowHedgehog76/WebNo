@@ -1134,3 +1134,35 @@ body.is-spectator #deck-pile.can-draw { animation: none; }
   .lap-banner { padding: 14px 26px; }
   .lap-banner b { font-size: 26px; }
 }
+
+/* ══════════════════════ QR code d'invitation ══════════════════════ */
+.qr {
+  display: block; width: 148px; height: 148px; margin: 4px auto 6px; padding: 0;
+  border: 4px solid #fff; border-radius: 10px; background: #fff; cursor: zoom-in;
+  box-shadow: 0 8px 22px rgba(0,0,0,.5); overflow: hidden;
+  transition: transform .16s var(--ease);
+}
+.qr:hover { transform: scale(1.04); }
+.qr svg { display: block; width: 100%; height: 100%; }
+.qr:empty { display: none; }
+.qr-hint { font-size: 10.5px; color: var(--muted); margin-bottom: 9px; }
+.qr:empty + .qr-hint { display: none; }
+.qr-big {
+  width: min(58vh, 78vw); height: min(58vh, 78vw); margin: 0 auto 16px;
+  border: 10px solid #fff; border-radius: 14px; background: #fff;
+}
+.qr-big svg { display: block; width: 100%; height: 100%; }
+#qr-big-code { font-family: var(--display); font-style: italic; letter-spacing: .2em; font-size: 30px; }
+
+.scan-btn { margin-top: 12px; display: none; align-items: center; justify-content: center; gap: 9px; }
+.scan-btn svg { width: 19px; height: 19px; }
+body.can-scan .scan-btn { display: flex; }
+.scan-frame {
+  position: relative; width: min(320px, 72vw); aspect-ratio: 1; margin: 0 auto 14px;
+  border-radius: 18px; overflow: hidden; background: #05070c; border: 1px solid var(--line);
+}
+.scan-frame video { width: 100%; height: 100%; object-fit: cover; display: block; }
+.scan-reticle {
+  position: absolute; inset: 16%; border-radius: 14px; pointer-events: none;
+  box-shadow: 0 0 0 2px rgba(255,201,60,.85), 0 0 0 100vmax rgba(3,4,8,.45);
+}

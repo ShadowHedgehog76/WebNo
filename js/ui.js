@@ -1,5 +1,11 @@
 // ui.js — rendu du DOM : table 3D, mains, salon, overlays
 import { COLOR_LABEL, isWild } from './deck.js';
+import { qrSvg } from './qr.js';
+
+/** Lien d'invitation d'une room. */
+export function joinUrl(code) {
+  return location.origin + location.pathname + '#' + code;
+}
 
 const $ = (id) => document.getElementById(id);
 
@@ -115,6 +121,11 @@ export function renderLobby({ code, players, settings, isHost, maxPlayers = 4 },
   const party = settings.mode === 'party';
   const groups = party ? 4 : 2;
   $('code-value').textContent = code || '-----';
+  const qr = $('qr-box');
+  if (code && qr.dataset.code !== code) {
+    qr.dataset.code = code;
+    try { qr.innerHTML = qrSvg(joinUrl(code)); } catch (_) { qr.innerHTML = ''; }
+  }
   $('lobby-role').textContent = isHost
     ? (party
       ? 'Mode party : vous observez la table sans y jouer. Réglez la partie et partagez le code.'
