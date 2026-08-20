@@ -15,11 +15,12 @@ les navigateurs se parlent directement en WebRTC (via [PeerJS](https://peerjs.co
   automatiquement différenciés.
 - **Bots** : l'hôte complète les places libres d'un clic. Trois niveaux (facile / normal / difficile).
   Un joueur qui se déconnecte est immédiatement repris par un bot, la partie continue.
-- **Mode party** : 12 ou 24 joueurs répartis en 4 groupes, plus l'hôte qui **observe** sans jouer.
-  Les sièges alternent entre les groupes, si bien que l'ordre de jeu est `1-1 → 1-2 → 1-3 → 1-4`,
-  puis `2-1 → 2-2 → …` : les premiers joueurs de chaque groupe jouent, puis les deuxièmes, etc.
-  Une liste défilante à gauche donne l'ordre complet, un bandeau met en avant les quatre joueurs
-  du tour en cours, et un changement de tour est annoncé à l'écran. Les groupes sont mélangeables.
+- **Mode party — un tournoi** : 16 joueurs répartis sur 4 tables de 4, qui jouent **en parallèle**.
+  Le vainqueur de chaque table monte sur la **table finale**, où tout repart de zéro comme dans une
+  partie classique ; le gagnant de cette finale remporte le tournoi. L'hôte n'y joue pas : il
+  **observe** le tableau des quatre tables sur son écran, puis la table finale en grand. Les
+  qualifications se jouent en une manche pour tenir le rythme, la finale suit votre réglage de
+  victoire. Les tables peuvent être tirées au sort.
 - **Deux autres modes** : *chacun pour soi*, ou *équipes 2 v 2* (les places 1-3 contre les places 2-4,
   l'hôte peut permuter les joueurs avec le bouton ⇅). En équipes, **les coéquipiers jouent à
   cartes ouvertes** : la main de votre partenaire s'affiche triée sur sa plaque.
@@ -87,6 +88,7 @@ index.html          écrans : accueil, salon, table, overlays
 css/style.css       thème, cartes CSS, table 3D, responsive
 js/audio.js         synthèse des musiques et bruitages (Web Audio)
 js/qr.js            encodeur QR autonome (mode octet, correction M, versions 1 à 10)
+js/tournament.js    mode party : quatre tables de qualification puis la finale
 js/deck.js          modèle de cartes, paquet de 108, points
 js/engine.js        moteur autoritaire : règles, tours, manches, scores
 js/bot.js           IA des joueurs virtuels (heuristiques + niveaux)

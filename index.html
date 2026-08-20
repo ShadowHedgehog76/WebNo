@@ -148,12 +148,10 @@
           </div>
 
           <div class="set-group" id="party-opts" hidden>
-            <span class="set-title">Palier</span>
-            <div class="seg small" data-setting="partySize">
-              <button data-value="12" class="on">12 joueurs</button>
-              <button data-value="24">24 joueurs</button>
-            </div>
-            <button class="btn btn-ghost btn-tiny host-only" id="btn-shuffle-groups">Mélanger les groupes</button>
+            <span class="set-title">Tournoi</span>
+            <p class="set-note">16 joueurs, 4 tables de 4. Le vainqueur de chaque table monte
+              sur la table finale, où tout repart de zéro.</p>
+            <button class="btn btn-ghost btn-tiny host-only" id="btn-shuffle-groups">Retirer au sort les tables</button>
           </div>
 
           <div class="set-group">
@@ -203,12 +201,16 @@
     </div>
   </header>
 
-  <aside class="party-list" id="party-list" hidden>
-    <h4>Ordre de jeu <span class="po-total" id="party-total"></span></h4>
-    <ol id="party-order"></ol>
-  </aside>
+  <section class="tour-board" id="tour-board" hidden>
+    <header class="tour-head">
+      <b id="tour-title">Qualifications</b>
+      <span id="tour-sub"></span>
+    </header>
+    <div class="tour-grid" id="tour-grid"></div>
+  </section>
 
-  <div class="lap-strip" id="lap-strip" hidden></div>
+  <div class="final-strip" id="final-strip" hidden></div>
+  <div class="my-table" id="my-table" hidden></div>
   <div class="lap-banner" id="lap-banner" hidden><b id="lap-banner-title"></b><em id="lap-banner-sub"></em></div>
 
   <div class="scene">

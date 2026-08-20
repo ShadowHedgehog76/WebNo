@@ -119,7 +119,6 @@ const GROUP_TINT = ['g1', 'g2', 'g3', 'g4'];
 
 export function renderLobby({ code, players, settings, isHost, maxPlayers = 4 }, handlers = {}) {
   const party = settings.mode === 'party';
-  const groups = party ? 4 : 2;
   $('code-value').textContent = code || '-----';
   const qr = $('qr-box');
   if (code && qr.dataset.code !== code) {
@@ -162,8 +161,8 @@ export function renderLobby({ code, players, settings, isHost, maxPlayers = 4 },
       li.appendChild(t);
     } else if (party && seat >= 0) {
       const t = document.createElement('span');
-      t.className = 'tag grp ' + GROUP_TINT[grp];
-      t.textContent = `${Math.floor(seat / 4) + 1}-${grp + 1}`;
+      t.className = 'tag grp ' + GROUP_TINT[Math.floor(seat / 4) % 4];
+      t.textContent = `Table ${Math.floor(seat / 4) + 1}`;
       li.appendChild(t);
     }
     if (p.isHost) { const t = document.createElement('span'); t.className = 'tag host'; t.textContent = 'Hôte'; li.appendChild(t); }
@@ -210,7 +209,8 @@ export function renderLobby({ code, players, settings, isHost, maxPlayers = 4 },
   const note = $('mode-note');
   note.hidden = !party;
   if (party) {
-    note.textContent = `L'hôte observe. ${settings.partySize} joueurs répartis en 4 groupes qui jouent chacun leur tour.`;
+    note.textContent = 'Tournoi : l\'hôte observe. 16 joueurs, 4 tables de 4, '
+      + 'et les quatre vainqueurs s\'affrontent sur la table finale.';
   }
   $('settings').classList.toggle('locked', !isHost);
   document.querySelector('.seg[data-setting="targetScore"]').style.opacity = settings.winCondition === 'points' ? '1' : '.35';
@@ -220,7 +220,7 @@ export function renderLobby({ code, players, settings, isHost, maxPlayers = 4 },
     let ok, why = '';
     if (party) {
       ok = players.length === maxPlayers;
-      if (!ok) why = `Le palier exige ${settings.partySize} joueurs plus vous (remplissez la table de bots).`;
+      if (!ok) why = 'Le tournoi exige 16 joueurs plus vous (remplissez la table de bots).';
     } else if (settings.mode === 'team') {
       ok = players.length === 4;
       if (!ok) why = 'Le mode équipes exige exactement 4 joueurs (ajoutez des bots).';
@@ -435,115 +435,165 @@ function renderAllyStrip(state) {
   }
 }
 
-/* ─────────────────── mode party : ordre de jeu et groupes ─────────────────── */
-let poEls = new Map();
-let lastLap = null;
+/* ─────────────────── mode party : le tournoi ─────────────────── */
+let lastTourPhase = null;
 
-function slotOf(seat, groups) {
-  return `${Math.floor(seat / groups) + 1}-${(seat % groups) + 1}`;
-}
-
-function renderPartyOrder(state) {
-  const list = $('party-order');
-  const g = state.groups || 4;
-  const key = state.players.map((p) => p.id).join(',');
-  if (list.dataset.key !== key) {
-    list.dataset.key = key;
-    list.innerHTML = '';
-    poEls = new Map();
-    for (const p of [...state.players].sort((a, b) => a.seat - b.seat)) {
+function tourPlayers(list, host, state) {
+  const key = list.map((p) => p.id).join(',');
+  if (host.dataset.key !== key) {
+    host.dataset.key = key;
+    host.innerHTML = '';
+    for (const p of list) {
       const li = document.createElement('li');
-      li.className = 'po ' + GROUP_TINT[p.team % 4];
-      li.innerHTML = '<span class="po-slot"></span><span class="po-name"></span><span class="po-cards"></span>';
-      li.querySelector('.po-slot').textContent = slotOf(p.seat, g);
-      li.querySelector('.po-name').textContent = p.name;
-      list.appendChild(li);
-      poEls.set(p.id, li);
+      li.innerHTML = '<span class="tp-name"></span><span class="tp-cards"></span>';
+      li.querySelector('.tp-name').textContent = p.name;
+      li.dataset.pid = p.id;
+      host.appendChild(li);
     }
-    $('party-total').textContent = `${state.players.length} joueurs · 4 groupes`;
   }
-  let active = null;
-  for (const p of state.players) {
-    const li = poEls.get(p.id);
-    if (!li) continue;
-    li.querySelector('.po-cards').textContent = p.handCount;
-    const isTurn = p.seat === state.turnSeat;
-    li.classList.toggle('now', isTurn);
+  for (const li of host.children) {
+    const p = list.find((x) => x.id === li.dataset.pid);
+    if (!p) continue;
+    li.querySelector('.tp-cards').textContent = p.handCount;
+    li.classList.toggle('now', p.id === state.turnId);
     li.classList.toggle('uno', p.handCount === 1);
     li.classList.toggle('out', p.handCount === 0);
     li.classList.toggle('off', !p.connected);
-    if (isTurn) active = li;
-  }
-  if (active && active !== poEls.lastActive) {
-    poEls.lastActive = active;
-    scrollIntoView(active, { block: 'center', behavior: 'smooth' });
   }
 }
 
-function renderLapStrip(state) {
-  const strip = $('lap-strip');
-  const g = state.groups || 4;
-  const lap = state.lap || 1;
-  const seats = [];
-  for (let i = 0; i < g; i++) {
-    const seat = (lap - 1) * g + i;
-    const p = state.players.find((x) => x.seat === seat);
-    if (p) seats.push(p);
+function renderTourGrid(t) {
+  const grid = $('tour-grid');
+  if (grid.childElementCount !== t.tables.length) {
+    grid.innerHTML = '';
+    for (let i = 0; i < t.tables.length; i++) {
+      const el = document.createElement('article');
+      el.className = 'tour-table';
+      el.innerHTML = '<h5></h5><div class="tt-body"><div class="tt-pile"></div>'
+        + '<ul class="tt-players"></ul></div><div class="tt-win" hidden></div>';
+      grid.appendChild(el);
+    }
   }
-  const key = lap + '|' + seats.map((p) => p.id).join(',');
+  [...grid.children].forEach((el, i) => {
+    const tb = t.tables[i];
+    if (!tb) return;
+    const q = t.qualified.find((x) => x.table === i);
+    el.querySelector('h5').textContent = `Table ${i + 1}`;
+    el.classList.toggle('over', !!q);
+    const pile = el.querySelector('.tt-pile');
+    pile.className = 'tt-pile glow-' + (tb.currentColor || 'red');
+    if (tb.top && pile.dataset.card !== tb.top.id) {
+      pile.dataset.card = tb.top.id;
+      pile.innerHTML = '';
+      pile.appendChild(cardEl(tb.top));
+    }
+    tourPlayers(tb.players, el.querySelector('.tt-players'), { turnId: q ? null : tb.turnId });
+    const win = el.querySelector('.tt-win');
+    win.hidden = !q;
+    if (q) win.textContent = `Qualifié : ${q.name}`;
+  });
+}
+
+function renderFinalStrip(state, t) {
+  const strip = $('final-strip');
+  const fin = t.final;
+  if (!fin) { strip.hidden = true; return; }
+  strip.hidden = false;
+  const key = fin.players.map((p) => p.id).join(',');
   if (strip.dataset.key !== key) {
     strip.dataset.key = key;
     strip.innerHTML = '';
-    for (const p of seats) {
+    fin.players.forEach((p, i) => {
       const d = document.createElement('div');
-      d.className = 'lap-card ' + GROUP_TINT[p.team % 4];
+      d.className = 'lap-card ' + GROUP_TINT[i % 4];
       d.innerHTML = '<span class="lc-slot"></span><span class="lc-name"></span><span class="lc-cards"></span>';
-      d.querySelector('.lc-slot').textContent = slotOf(p.seat, g);
+      d.querySelector('.lc-slot').textContent = 'T' + (t.qualified[i] ? t.qualified[i].table + 1 : i + 1);
       d.querySelector('.lc-name').textContent = p.name;
       d.dataset.pid = p.id;
       strip.appendChild(d);
-    }
+    });
     strip.classList.remove('swap');
     void strip.offsetWidth;
     strip.classList.add('swap');
   }
   for (const d of strip.children) {
-    const p = state.players.find((x) => x.id === d.dataset.pid);
+    const p = fin.players.find((x) => x.id === d.dataset.pid);
     if (!p) continue;
     d.querySelector('.lc-cards').textContent = `${p.handCount} carte${p.handCount > 1 ? 's' : ''}`;
-    d.classList.toggle('now', p.seat === state.turnSeat);
+    d.classList.toggle('now', p.id === fin.turnId);
   }
 }
 
-function announceLap(state) {
-  if (state.lap === lastLap || !state.lap) { lastLap = state.lap; return false; }
-  const first = lastLap === null;
-  lastLap = state.lap;
-  if (first) return false;
+function announcePhase(t) {
+  if (t.phase === lastTourPhase) return;
+  const first = lastTourPhase === null;
+  lastTourPhase = t.phase;
+  if (first || t.phase === 'qualif') return;
   const b = $('lap-banner');
-  $('lap-banner-title').textContent = `Tour ${state.lap}`;
-  $('lap-banner-sub').textContent = `Au ${state.lap}ᵉ joueur de chaque groupe`;
+  if (t.phase === 'final') {
+    $('lap-banner-title').textContent = 'Table finale';
+    $('lap-banner-sub').textContent = t.qualified.map((q) => q.name).join(' · ');
+  } else if (t.phase === 'done' && t.champion) {
+    $('lap-banner-title').textContent = t.champion.name;
+    $('lap-banner-sub').textContent = 'remporte le tournoi';
+  } else return;
   b.hidden = false;
   b.classList.remove('show');
   void b.offsetWidth;
   b.classList.add('show');
-  clearTimeout(announceLap.t);
-  announceLap.t = setTimeout(() => { b.hidden = true; b.classList.remove('show'); }, 1900);
-  return true;
+  clearTimeout(announcePhase.t);
+  announcePhase.t = setTimeout(() => { b.hidden = true; b.classList.remove('show'); }, 2600);
 }
 
-export function renderParty(state) {
-  const party = state.settings.mode === 'party';
-  document.body.classList.toggle('is-party', party);
+export function renderTournament(state) {
+  const t = state.tournament;
+  document.body.classList.toggle('is-party', !!t);
   document.body.classList.toggle('is-spectator', !!state.spectator);
-  $('party-list').hidden = !party;
-  $('lap-strip').hidden = !party || state.phase !== 'playing';
-  if (!party) { lastLap = null; return; }
-  renderPartyOrder(state);
-  if (state.phase === 'playing') { renderLapStrip(state); announceLap(state); }
+  if (!t) {
+    $('tour-board').hidden = true;
+    $('final-strip').hidden = true;
+    $('my-table').hidden = true;
+    lastTourPhase = null;
+    return;
+  }
+  const qualif = t.phase === 'qualif';
+  // le tableau des quatre tables est destiné à ceux qui ne jouent pas
+  const board = state.spectator && qualif;
+  $('tour-board').hidden = !board;
+  document.body.classList.toggle('tour-board-on', board);
+  if (board) {
+    $('tour-title').textContent = 'Qualifications';
+    $('tour-sub').textContent = `${t.qualified.length}/4 tables terminées — le vainqueur de chacune monte en finale`;
+    renderTourGrid(t);
+  }
+  if (!qualif && state.spectator) renderFinalStrip(state, t);
+  else $('final-strip').hidden = true;
+
+  // repère pour un joueur encore en lice ou éliminé
+  const my = $('my-table');
+  if (state.spectator) {
+    my.hidden = !state.eliminated;
+    if (state.eliminated) {
+      my.className = 'my-table out';
+      my.textContent = t.phase === 'done'
+        ? (t.champion ? `${t.champion.name} remporte le tournoi` : 'Tournoi terminé')
+        : 'Éliminé — vous suivez le tournoi';
+    }
+  } else {
+    my.hidden = false;
+    my.className = 'my-table';
+    my.textContent = qualif
+      ? `Table ${(state.tableIndex ?? 0) + 1} · qualifications`
+      : 'Table finale';
+  }
+  announcePhase(t);
 }
 
-export function resetParty() { poEls = new Map(); lastLap = null; $('party-order').dataset.key = ''; $('lap-strip').dataset.key = ''; }
+export function resetParty() {
+  lastTourPhase = null;
+  const g = $('tour-grid'); if (g) g.innerHTML = '';
+  const f = $('final-strip'); if (f) f.dataset.key = '';
+}
 
 function renderDiscard(state) {
   const pile = $('discard-pile');
@@ -569,12 +619,16 @@ function renderDiscard(state) {
 
 export function renderGame(state, handlers = {}) {
   // HUD
-  $('hud-round').textContent = 'Manche ' + state.roundNo;
-  $('hud-mode').textContent = state.settings.mode === 'team'
-    ? 'Équipes 2 v 2'
-    : (state.settings.mode === 'party'
-      ? `Party · ${state.players.length} joueurs`
-      : 'Chacun pour soi');
+  const tour = state.tournament;
+  if (tour) {
+    $('hud-round').textContent = tour.phase === 'qualif' ? 'Qualifications'
+      : (tour.phase === 'final' ? 'Table finale' : 'Tournoi terminé');
+    const inscrits = tour.tables.reduce((n, tb) => n + (tb ? tb.players.length : 0), 0);
+    $('hud-mode').textContent = `Tournoi · ${inscrits} joueurs`;
+  } else {
+    $('hud-round').textContent = 'Manche ' + state.roundNo;
+    $('hud-mode').textContent = state.settings.mode === 'team' ? 'Équipes 2 v 2' : 'Chacun pour soi';
+  }
 
   // adversaires : en party, la liste latérale les remplace
   if (state.settings.mode === 'party') {
@@ -614,7 +668,7 @@ export function renderGame(state, handlers = {}) {
     } else teamEl.hidden = true;
   }
   $('turn-flag').hidden = state.turnId !== state.you;
-  renderParty(state);
+  renderTournament(state);
   renderAllyStrip(state);
   renderHand(state, handlers);
 
@@ -675,9 +729,6 @@ export function pickTarget(state) {
 function groupTag(state, p) {
   if (state.settings.mode === 'team') {
     return ` <span class="tag ${p.team === 0 ? 'teamA' : 'teamB'}">${p.team === 0 ? 'A' : 'B'}</span>`;
-  }
-  if (state.settings.mode === 'party') {
-    return ` <span class="tag grp ${GROUP_TINT[p.team % 4]}">${slotOf(p.seat, state.groups || 4)}</span>`;
   }
   return '';
 }

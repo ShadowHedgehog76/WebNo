@@ -1,10 +1,9 @@
 // engine.js — moteur de jeu UNO autoritaire (tourne uniquement chez l'hôte)
 import { buildDeck, decksNeeded, shuffle, isWild, isNumber, cardPoints, cardLabel, COLORS, COLOR_LABEL } from './deck.js';
 
-/** Nombre de groupes selon le mode. En party, les sièges alternent entre les
- *  4 groupes : le siège n appartient au groupe n % 4, ce qui donne l'ordre
- *  de jeu 1-1, 1-2, 1-3, 1-4, puis 2-1, 2-2… */
-export const GROUP_COUNT = { solo: 2, team: 2, party: 4 };
+/** Nombre de groupes selon le mode. Le mode party est un tournoi : ses tables
+ *  sont des parties individuelles ordinaires, gérées par tournament.js. */
+export const GROUP_COUNT = { solo: 2, team: 2, party: 2 };
 
 export const DEFAULT_SETTINGS = {
   mode: 'solo',            // 'solo' | 'team' | 'party'
@@ -15,7 +14,6 @@ export const DEFAULT_SETTINGS = {
   unoRule: true,           // Obligation de dire UNO
   winCondition: 'points',  // 'points' | 'single'
   targetScore: 500,
-  partySize: 12,           // mode party : 12 ou 24 joueurs (hôte non compté)
   botLevel: 'normal',      // 'easy' | 'normal' | 'hard'
   startCards: 7,
 };
@@ -60,17 +58,12 @@ export class UnoGame {
   topCard() { return this.discard[this.discard.length - 1]; }
 
   /** Le jeu se compte-t-il par groupes ? */
-  isTeamPlay() { return this.settings.mode === 'team' || this.settings.mode === 'party'; }
+  isTeamPlay() { return this.settings.mode === 'team'; }
 
   teamOf(player) { return this.isTeamPlay() ? player.team : player.seat; }
 
   areAllies(a, b) {
     return this.isTeamPlay() && a.id !== b.id && a.team === b.team;
-  }
-
-  /** Repère d'un joueur en mode party : « 2-3 » = 2ᵉ joueur du groupe 3. */
-  slotLabel(player) {
-    return `${Math.floor(player.seat / this.groups) + 1}-${(player.seat % this.groups) + 1}`;
   }
 
   // ------------------------------------------------------------ round setup

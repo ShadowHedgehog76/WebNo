@@ -1,5 +1,6 @@
 // app.js — orchestration : accueil, salon, boucle hôte (moteur + IA), client
 import { UnoGame, DEFAULT_SETTINGS } from './engine.js';
+import { Tournament, TOURNAMENT_SIZE } from './tournament.js';
 import { botDecide, botJumpIn, botCallout, botDelay, botProfile } from './bot.js';
 import { HostNet, ClientNet, normalizeCode, codeFromScan } from './net.js';
 import { isWild } from './deck.js';
@@ -13,7 +14,7 @@ const BOT_NAMES = ['Léa', 'Max', 'Zoé', 'Nino', 'Iris', 'Sacha', 'Milo', 'Nora
 
 /** Places disponibles : en party l'hôte observe, il occupe une place en plus. */
 function maxPlayers(settings) {
-  return settings.mode === 'party' ? settings.partySize + 1 : 4;
+  return settings.mode === 'party' ? TOURNAMENT_SIZE + 1 : 4;
 }
 const HOST_ID = 'p0';
 
@@ -38,6 +39,8 @@ class Host {
     this.seq = 1;
     this.players = [{ id: HOST_ID, name, isHost: true, isBot: false, peerId: null }];
     this.game = null;
+    this.tour = null;
+    this.tableAt = new Map();     // cadence des bots, une entrée par table
     this.unoSince = new Map();
     this.jumpTried = new Set();
     this.jumpToken = 0;
@@ -59,7 +62,7 @@ class Host {
     if (!msg || typeof msg !== 'object') return;
     if (msg.t === 'hello') {
       if (this.byPeer(peerId)) return;
-      if (this.game) { this.net.send(peerId, { t: 'error', msg: 'La partie a déjà commencé.', fatal: true }); return; }
+      if (this.game || this.tour) { this.net.send(peerId, { t: 'error', msg: 'La partie a déjà commencé.', fatal: true }); return; }
       if (this.players.length >= maxPlayers(this.settings)) { this.net.send(peerId, { t: 'error', msg: 'La room est complète.', fatal: true }); return; }
       const name = sanitizeName(msg.name, this.players.map((p) => p.name));
       this.players.push({ id: this.newId(), name, isHost: false, isBot: false, peerId });
@@ -70,8 +73,10 @@ class Host {
     }
     const player = this.byPeer(peerId);
     if (!player) return;
-    if (msg.t === 'action' && this.game) {
-      const res = this.game.handle(player.id, msg.action);
+    if (msg.t === 'action' && (this.game || this.tour)) {
+      const res = this.tour
+        ? this.tour.handle(player.id, msg.action)
+        : this.game.handle(player.id, msg.action);
       if (!res.ok) this.net.send(peerId, { t: 'error', msg: res.error });
       this.afterChange();
     }
@@ -82,12 +87,13 @@ class Host {
     const p = this.byPeer(peerId);
     if (!p) return;
     p.peerId = null;
-    if (!this.game) {
+    if (!this.game && !this.tour) {
       this.players = this.players.filter((x) => x.id !== p.id);
       ui.toast(`${p.name} a quitté le salon`, 'warn');
       this.syncLobby();
     } else {
-      const gp = this.game.byId(p.id);
+      const src = this.tour ? this.tour.gameOf(p.id) : this.game;
+      const gp = src ? src.byId(p.id) : null;
       if (gp) { gp.connected = false; gp.isBot = true; }
       p.isBot = true;
       ui.toast(`${p.name} s'est déconnecté — un bot prend la main`, 'warn');
@@ -178,11 +184,18 @@ class Host {
   }
 
   start() {
-    this.game = new UnoGame(
-      this.roster().map((p) => ({ id: p.id, name: p.name, isBot: p.isBot, connected: true })),
-      this.settings
-    );
-    this.game.startRound();
+    const seats = this.roster().map((p) => ({ id: p.id, name: p.name, isBot: p.isBot, connected: true }));
+    if (this.settings.mode === 'party') {
+      this.tour = new Tournament(seats, this.settings);
+      this.tour.shuffleSeats();
+      this.tour.start();
+      this.game = null;
+      this.tableAt.clear();
+    } else {
+      this.tour = null;
+      this.game = new UnoGame(seats, this.settings);
+      this.game.startRound();
+    }
     this.unoSince.clear();
     ui.resetGameView();
     this.broadcastStart();
@@ -199,6 +212,7 @@ class Host {
   }
 
   nextRound() {
+    if (this.tour) return;         // le tournoi enchaîne tout seul
     if (!this.game) return;
     this.game.startRound();
     this.unoSince.clear();
@@ -212,6 +226,19 @@ class Host {
   }
 
   rematch() {
+    if (this.tour) {
+      this.tour.shuffleSeats();
+      this.tour.start();
+      this.tableAt.clear();
+      this.unoSince.clear();
+      audio.playMusic('game');
+      ui.resetGameView();
+      for (const p of this.players) if (p.peerId) this.net.send(p.peerId, { t: 'newRound' });
+      ui.hideGameOver();
+      ui.hideRoundEnd();
+      this.afterChange();
+      return;
+    }
     if (!this.game) return;
     for (const p of this.game.players) p.score = 0;
     this.game.roundNo = 0;
@@ -226,6 +253,7 @@ class Host {
   }
 
   afterChange() {
+    if (this.tour) return this.afterTournamentChange();
     const g = this.game;
     if (!g) return;
     // horodatage des oublis de UNO (délai de grâce avant dénonciation par les bots)
@@ -243,8 +271,76 @@ class Host {
     applyState(g.stateFor(HOST_ID));
   }
 
+  afterTournamentChange() {
+    const T = this.tour;
+    for (const g of T.games()) {
+      for (const p of g.players) {
+        if (p.mustCallUno && !this.unoSince.has(p.id)) this.unoSince.set(p.id, Date.now());
+        if (!p.mustCallUno) this.unoSince.delete(p.id);
+      }
+    }
+    for (const p of this.players) {
+      if (p.peerId) this.net.send(p.peerId, { t: 'state', state: T.stateFor(p.id) });
+    }
+    applyState(T.stateFor(HOST_ID));
+  }
+
+  /** Boucle IA du tournoi : chaque table avance à son rythme. */
+  tickTournament() {
+    const T = this.tour;
+    if (!T || T.phase === 'done') return;
+    const now = Date.now();
+    const level = this.settings.botLevel;
+    const grace = { easy: 3200, normal: 2000, hard: 1300 }[level] ?? 2000;
+    const pace = 0.5;
+    let changed = false;
+
+    for (const g of T.games()) {
+      if (g.phase !== 'playing') continue;
+      let acted = false;
+
+      for (const b of g.players) {
+        if (!b.isBot) continue;
+        const cible = g.players.find((p) => p.mustCallUno && p.id !== b.id);
+        if (!cible) continue;
+        if (now - (this.unoSince.get(cible.id) || now) < grace) continue;
+        const act = botCallout(g, b);
+        if (act) { T.handle(b.id, act); acted = changed = true; break; }
+      }
+      if (acted) continue;
+
+      if (g.settings.jumpIn) {
+        for (const b of g.players) {
+          if (!b.isBot || b.id === g.current.id) continue;
+          const key = b.id + ':' + g.discard.length;
+          if (this.jumpTried.has(key)) continue;
+          this.jumpTried.add(key);
+          const act = botJumpIn(g, b);
+          if (act) { T.handle(b.id, act); acted = changed = true; break; }
+        }
+      }
+      if (acted) continue;
+
+      const cur = g.current;
+      const st = this.tableAt.get(g);
+      if (!st || st.id !== cur.id) {
+        this.tableAt.set(g, { id: cur.id, at: now + botDelay(level) * pace });
+        continue;
+      }
+      if (!cur.isBot || now < st.at) continue;
+      let r = T.handle(cur.id, botDecide(g, cur));
+      if (!r.ok) r = T.handle(cur.id, { type: 'draw' });
+      if (!r.ok) T.handle(cur.id, { type: 'pass' });
+      this.tableAt.set(g, { id: cur.id, at: now + botDelay(level) * pace });
+      changed = true;
+    }
+    if (this.jumpTried.size > 400) this.jumpTried.clear();
+    if (changed) this.afterTournamentChange();
+  }
+
   /** Boucle IA. */
   tick() {
+    if (this.tour) return this.tickTournament();
     const g = this.game;
     if (!g || g.phase !== 'playing') return;
     const now = Date.now();
@@ -298,6 +394,7 @@ class Host {
   }
 
   localAction(action) {
+    if (this.tour) return;                                 // hôte spectateur du tournoi
     if (!this.game || !this.game.byId(HOST_ID)) return;   // hôte spectateur
     const res = this.game.handle(HOST_ID, action);
     if (!res.ok) { ui.toast(res.error, 'bad'); audio.sfx('error'); }
@@ -566,7 +663,7 @@ function wireLobby() {
       if (!b || !App.host) return;
       const key = seg.dataset.setting;
       let val = b.dataset.value;
-      if (key === 'targetScore' || key === 'partySize') val = Number(val);
+      if (key === 'targetScore') val = Number(val);
       App.host.setSetting(key, val);
     });
   }
