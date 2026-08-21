@@ -1,6 +1,6 @@
 // ui.js — rendu du DOM : table 3D, mains, salon, overlays
-import { COLOR_LABEL, isWild, colorsOf, cardCatalog } from './deck.js?v=202608211149';
-import { qrSvg } from './qr.js?v=202608211149';
+import { COLOR_LABEL, isWild, colorsOf, cardCatalog } from './deck.js?v=202608211216';
+import { qrSvg } from './qr.js?v=202608211216';
 
 /** Lien d'invitation d'une room. */
 export function joinUrl(code) {
@@ -125,6 +125,13 @@ export function cardEl(card, opts = {}) {
     dot.className = 'chosen-dot dot-' + card.chosen;
     d.appendChild(dot);
   }
+  // pack Flip : un coin corné laisse deviner la couleur du verso
+  if (card.back) {
+    const fold = document.createElement('span');
+    fold.className = 'fold';
+    fold.style.setProperty('--fold', COLOR_HEX[card.back.color] || '#888');
+    d.appendChild(fold);
+  }
   return d;
 }
 
@@ -218,6 +225,7 @@ export function renderLobby({ code, players, settings, isHost, maxPlayers = 4 },
       + 'A, B, A, B… et chaque équipe voit le jeu de ses coéquipiers.';
   }
   $('team-opts').hidden = !team;
+  document.body.dataset.pack = settings.pack || 'classic';
   renderCatalog(settings);
   const pk = $('pack-note');
   pk.hidden = settings.pack !== 'flip';
@@ -539,7 +547,7 @@ export function renderGame(state, handlers = {}) {
   const table = $('table3d');
   if (table) table.style.setProperty('--play-color', COLOR_HEX[state.currentColor] || 'rgba(255,255,255,.2)');
   document.body.classList.toggle('dark-side', state.side === 'dark');
-  document.body.classList.toggle('pack-flip', state.pack === 'flip');
+  document.body.dataset.pack = state.pack || 'classic';
 
   const pb = $('pending-badge');
   if (state.pendingDraw > 0) {

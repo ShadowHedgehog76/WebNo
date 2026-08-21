@@ -1158,3 +1158,99 @@ body.flipping .hand .card, body.flipping .discard .card, body.flipping .fc {
   background: linear-gradient(170deg, #FFB05C, #E06A00); --lip: #8A3F00; color: #2B1400;
 }
 .btn.action.launcher:not(:disabled) { animation: none; }
+
+/* ══════════════════════ un habillage par paquet ══════════════════════
+   Chaque paquet doit se reconnaître d'un coup d'œil, sans lire la moindre
+   valeur : la bordure, la forme du cartouche et le dos changent.        */
+
+/* ─── Flip : le coin corné montre la couleur du verso ─── */
+.fold {
+  position: absolute; top: 0; right: 0; z-index: 3;
+  width: 30%; height: 30%; pointer-events: none;
+  background: linear-gradient(225deg, var(--fold) 0 52%, transparent 52%);
+  border-top-right-radius: 13px;
+  box-shadow: inset -1px 1px 0 rgba(255,255,255,.55);
+}
+.fold::after {
+  content: ''; position: absolute; inset: 0;
+  background: linear-gradient(225deg, transparent 0 52%, rgba(0,0,0,.35) 52% 56%, transparent 56%);
+}
+body[data-pack="flip"] .card .oval { border-radius: 46% / 40%; }
+body[data-pack="flip"] .card { background: linear-gradient(150deg, #fff, #E8ECF5); }
+
+/* ─── No Mercy : bordure noire, cartouche anguleux, rayures ─── */
+body[data-pack="nomercy"] .card {
+  background: linear-gradient(150deg, #1C1C24, #08080C);
+  box-shadow: 0 12px 24px rgba(0,0,0,.6), inset 0 0 0 1px rgba(255,255,255,.14);
+}
+body[data-pack="nomercy"] .card .inner { border-radius: 5px; }
+body[data-pack="nomercy"] .card .inner::after {
+  content: ''; position: absolute; inset: 0; opacity: .35;
+  background: repeating-linear-gradient(-52deg, rgba(0,0,0,.5) 0 3px, transparent 3px 11px);
+}
+body[data-pack="nomercy"] .card .oval {
+  border-radius: 3px; transform: rotate(-24deg) skewX(-9deg);
+  clip-path: polygon(6% 0, 100% 0, 94% 100%, 0 100%);
+  box-shadow: 0 3px 10px rgba(0,0,0,.5);
+}
+body[data-pack="nomercy"] .card .glyph { transform: rotate(24deg) skewX(9deg); }
+body[data-pack="nomercy"] .card .corner { color: #fff; font-style: italic; }
+body[data-pack="nomercy"] .card::after {
+  background: linear-gradient(118deg, rgba(255,255,255,.18) 0 24%, transparent 44%);
+}
+body[data-pack="nomercy"] .card.back::before { background: radial-gradient(120% 90% at 30% 12%, #2A0B0F, #12050A 60%, #06020B); }
+body[data-pack="nomercy"] .card.back::after {
+  background: linear-gradient(170deg, #FF3B30, #8E0009);
+  border-color: #2A2A32; border-radius: 4px;
+  clip-path: polygon(7% 0, 100% 0, 93% 100%, 0 100%);
+  transform: translate(-50%, -50%) rotate(-14deg);
+}
+body[data-pack="nomercy"] .fc::after { background: #FF3B30; border-radius: 2px; transform: skewX(-10deg); }
+
+/* ─── Extreme : cadre métal, éclat électrique ─── */
+body[data-pack="extreme"] .card {
+  background: linear-gradient(150deg, #F4F7FC 0 38%, #B9C2D2 52%, #EDF1F8 66%, #9AA6BA);
+  box-shadow: 0 12px 24px rgba(0,0,0,.45), inset 0 0 0 1px rgba(255,255,255,.6);
+}
+body[data-pack="extreme"] .card .inner { border-radius: 7px; }
+body[data-pack="extreme"] .card .inner::after {
+  content: ''; position: absolute; left: 50%; top: 50%; width: 190%; height: 190%;
+  translate: -50% -50%; opacity: .5; pointer-events: none;
+  mix-blend-mode: soft-light;
+  background: conic-gradient(from 8deg,
+    #fff 0 7deg, transparent 7deg 30deg, #fff 30deg 37deg, transparent 37deg 60deg,
+    #fff 60deg 67deg, transparent 67deg 90deg, #fff 90deg 97deg, transparent 97deg 120deg,
+    #fff 120deg 127deg, transparent 127deg 150deg, #fff 150deg 157deg, transparent 157deg 180deg,
+    #fff 180deg 187deg, transparent 187deg 210deg, #fff 210deg 217deg, transparent 217deg 240deg,
+    #fff 240deg 247deg, transparent 247deg 270deg, #fff 270deg 277deg, transparent 277deg 300deg,
+    #fff 300deg 307deg, transparent 307deg 330deg, #fff 330deg 337deg, transparent 337deg 360deg);
+}
+body[data-pack="extreme"] .card .oval {
+  border-radius: 22%; transform: rotate(-14deg);
+  box-shadow: 0 3px 10px rgba(0,0,0,.28), inset 0 0 0 2px rgba(0,0,0,.06);
+}
+body[data-pack="extreme"] .card .glyph { transform: rotate(14deg); }
+body[data-pack="extreme"] .card.back::before { background: radial-gradient(120% 90% at 30% 12%, #2C3444, #141A26 60%, #080B12); }
+body[data-pack="extreme"] .card.back::after {
+  background: linear-gradient(170deg, #7FD8FF, #0A72C4);
+  border-radius: 26%; transform: translate(-50%, -50%) rotate(-14deg);
+  color: #04223A;
+}
+body[data-pack="extreme"] .fc::after { background: #29A3E8; border-radius: 30%; }
+
+/* le catalogue montre lui aussi la bonne allure */
+.cl-card .card .fold { border-top-right-radius: 8px; }
+
+/* le dos du pack Flip annonce ses deux faces */
+body[data-pack="flip"] .card.back::after {
+  background: linear-gradient(118deg, var(--red) 0 48%, #17171D 48% 52%, var(--purple) 52%);
+}
+body[data-pack="flip"] .card.back::before {
+  background: radial-gradient(120% 90% at 30% 12%, #241C34, #12101C 60%, #08060E);
+}
+body[data-pack="flip"].dark-side .card.back::after {
+  background: linear-gradient(118deg, var(--purple) 0 48%, #17171D 48% 52%, var(--red) 52%);
+}
+body[data-pack="flip"] .fc::after {
+  background: linear-gradient(118deg, var(--red) 0 50%, var(--purple) 50%);
+}
