@@ -1,6 +1,10 @@
 // ui.js — rendu du DOM : table 3D, mains, salon, overlays
-import { COLOR_LABEL, isWild, colorsOf, cardCatalog, PACKS, packById, MODES, modeById, modeId } from './deck.js?v=202608220129';
-import { qrSvg } from './qr.js?v=202608220129';
+import {
+  COLOR_LABEL, isWild, colorsOf, cardCatalog,
+  PACKS, packById, MODES, modeById, modeId,
+  WIN_OPTIONS, winById, winId, BOT_LEVELS, botById,
+} from './deck.js?v=202608220137';
+import { qrSvg } from './qr.js?v=202608220137';
 
 /** Lien d'invitation d'une room. */
 export function joinUrl(code) {
@@ -229,11 +233,9 @@ export function renderLobby({ code, players, settings, isHost, maxPlayers = 4 },
     sw.querySelector('input').checked = !!settings[sw.dataset.setting];
   }
   document.body.dataset.pack = settings.pack || 'classic';
-  renderPackButton(settings);
-  renderModeButton(settings);
+  renderChoiceButtons(settings);
   renderCatalog(settings);
   $('settings').classList.toggle('locked', !isHost);
-  document.querySelector('.seg[data-setting="targetScore"]').style.opacity = settings.winCondition === 'points' ? '1' : '.35';
 
   const start = $('btn-start');
   if (start) {
@@ -250,20 +252,12 @@ export function renderLobby({ code, players, settings, isHost, maxPlayers = 4 },
   }
 }
 
-/** Quatre cartes en éventail, l'aperçu d'un paquet. */
-function packFan(pack) {
-  const fan = document.createElement('span');
-  fan.className = 'pk-fan pack-' + pack.id;
-  pack.preview.forEach((c, i) => {
-    const el = cardEl({ id: `pv-${pack.id}-${i}`, color: c.color, value: c.value });
-    el.style.setProperty('--i', String(i - (pack.preview.length - 1) / 2));
-    fan.appendChild(el);
-  });
-  return fan;
-}
+/* ─────────────────── les choix du salon ───────────────────
+   Mode, paquet, victoire et niveau des bots suivent tous le même schéma :
+   un bouton illustré qui ouvre une galerie de vignettes.               */
 
 /** Aperçu d'un mode : les places autour de la table, colorées par camp. */
-function modeFan(mode) {
+function modeVis(mode) {
   const vis = document.createElement('span');
   vis.className = 'md-vis';
   const table = document.createElement('span');
@@ -281,84 +275,140 @@ function modeFan(mode) {
   return vis;
 }
 
-/** Le bouton du salon : nom du mode et aperçu de la table. */
-function renderModeButton(settings) {
-  const mode = modeById(modeId(settings));
-  const btn = $('btn-mode');
-  if (!btn || btn.dataset.mode === mode.id) return;
-  btn.dataset.mode = mode.id;
-  $('mode-name').textContent = mode.name;
-  $('mode-note').textContent = mode.tagline;
-  const mini = $('mode-mini');
-  mini.innerHTML = '';
-  mini.appendChild(modeFan(mode));
+/** Aperçu d'un paquet : quatre cartes en bouquet. */
+function packVis(pack) {
+  const fan = document.createElement('span');
+  fan.className = 'pk-fan pack-' + pack.id;
+  pack.preview.forEach((c, i) => {
+    const el = cardEl({ id: `pv-${pack.id}-${i}`, color: c.color, value: c.value });
+    el.style.setProperty('--i', String(i - (pack.preview.length - 1) / 2));
+    fan.appendChild(el);
+  });
+  return fan;
 }
 
-/** La galerie des modes. */
-export function showModes(settings, onPick) {
-  const grid = $('mode-grid');
-  grid.innerHTML = '';
-  const courant = modeId(settings);
-  for (const mode of MODES) {
+/** Aperçu d'une condition de victoire : un objectif et sa jauge. */
+function winVis(win) {
+  const vis = document.createElement('span');
+  vis.className = 'wn-vis';
+  const val = document.createElement('b');
+  val.textContent = win.winCondition === 'single' ? '1' : String(win.targetScore);
+  const unite = document.createElement('i');
+  unite.textContent = win.winCondition === 'single' ? 'manche' : 'points';
+  const jauge = document.createElement('span');
+  jauge.className = 'wn-gauge';
+  const rempli = document.createElement('span');
+  rempli.style.width = Math.round((win.gauge || 0) * 100) + '%';
+  jauge.appendChild(rempli);
+  vis.append(val, unite, jauge);
+  return vis;
+}
+
+/** Aperçu d'un niveau de bot : trois barres, dont autant d'allumées. */
+function botVis(bot) {
+  const vis = document.createElement('span');
+  vis.className = 'bt-vis n' + bot.force;
+  const face = document.createElement('span');
+  face.className = 'bt-face';
+  face.innerHTML = '<i></i><i></i>';
+  const barres = document.createElement('span');
+  barres.className = 'bt-bars';
+  for (let i = 1; i <= 3; i++) {
+    const b = document.createElement('i');
+    if (i <= bot.force) b.className = 'on';
+    barres.appendChild(b);
+  }
+  vis.append(face, barres);
+  return vis;
+}
+
+/**
+ * Le bouton d'un réglage : aperçu, nom et description.
+ * @param opts {btn, name, note, mini, item, vis}
+ */
+function choiceButton({ btn, name, note, mini, item, vis }) {
+  const b = $(btn);
+  if (!b || b.dataset.choice === item.id) return;
+  b.dataset.choice = item.id;
+  $(name).textContent = item.name;
+  $(note).textContent = item.tagline;
+  const m = $(mini);
+  m.innerHTML = '';
+  m.appendChild(vis(item));
+}
+
+/** La galerie d'un réglage : une vignette par choix possible. */
+function choiceGallery({ overlay, grid, items, current, vis, cls, onPick }) {
+  const g = $(grid);
+  g.innerHTML = '';
+  for (const item of items) {
     const tuile = document.createElement('button');
-    tuile.className = 'pack-tile mode-tile';
-    tuile.classList.toggle('on', mode.id === courant);
-    tuile.dataset.mode = mode.id;
-    const vis = document.createElement('span');
-    vis.className = 'pt-vis';
-    vis.appendChild(modeFan(mode));
+    tuile.className = 'pack-tile ' + cls;
+    tuile.classList.toggle('on', item.id === current);
+    tuile.dataset.choice = item.id;
+    const box = document.createElement('span');
+    box.className = 'pt-vis';
+    box.appendChild(vis(item));
     const txt = document.createElement('span');
     txt.className = 'pt-txt';
     txt.innerHTML = '<b></b><em></em>';
-    txt.querySelector('b').textContent = mode.name;
-    txt.querySelector('em').textContent = mode.tagline;
-    tuile.append(vis, txt);
-    tuile.onclick = () => { onPick(mode); hideModes(); };
-    grid.appendChild(tuile);
+    txt.querySelector('b').textContent = item.name;
+    txt.querySelector('em').textContent = item.tagline;
+    tuile.append(box, txt);
+    tuile.onclick = () => { onPick(item); $(overlay).hidden = true; };
+    g.appendChild(tuile);
   }
-  $('overlay-modes').hidden = false;
+  $(overlay).hidden = false;
+}
+
+/* ── les quatre réglages ── */
+export function showModes(settings, onPick) {
+  choiceGallery({
+    overlay: 'overlay-modes', grid: 'mode-grid', items: MODES,
+    current: modeId(settings), vis: modeVis, cls: 'mode-tile', onPick,
+  });
 }
 export function hideModes() { $('overlay-modes').hidden = true; }
 
-/** Le bouton du salon : nom du paquet et aperçu de quatre cartes. */
-function renderPackButton(settings) {
-  const pack = packById(settings.pack || 'classic');
-  const btn = $('btn-pack');
-  if (!btn || btn.dataset.pack === pack.id) return;
-  btn.dataset.pack = pack.id;
-  $('pack-name').textContent = pack.name;
-  $('pack-note').textContent = pack.tagline;
-  const mini = $('pack-mini');
-  mini.innerHTML = '';
-  mini.appendChild(packFan(pack));
-}
-
-/** La galerie des paquets, en grille de vignettes. */
 export function showPacks(settings, onPick) {
-  const grid = $('pack-grid');
-  grid.innerHTML = '';
-  for (const pack of PACKS) {
-    const card = document.createElement('button');
-    card.className = 'pack-tile pack-' + pack.id;
-    card.classList.toggle('on', pack.id === (settings.pack || 'classic'));
-    card.dataset.pack = pack.id;
-    const vis = document.createElement('span');
-    vis.className = 'pt-vis';
-    vis.appendChild(packFan(pack));
-    const txt = document.createElement('span');
-    txt.className = 'pt-txt';
-    txt.innerHTML = '<b></b><em></em>';
-    txt.querySelector('b').textContent = pack.name;
-    txt.querySelector('em').textContent = pack.tagline;
-    card.append(vis, txt);
-    card.onclick = () => { onPick(pack.id); hidePacks(); };
-    grid.appendChild(card);
-  }
-  $('overlay-packs').hidden = false;
+  choiceGallery({
+    overlay: 'overlay-packs', grid: 'pack-grid', items: PACKS,
+    current: settings.pack || 'classic', vis: packVis, cls: 'pack-choice',
+    onPick: (p) => onPick(p.id),
+  });
 }
-
 export function hidePacks() { $('overlay-packs').hidden = true; }
 
+export function showWins(settings, onPick) {
+  choiceGallery({
+    overlay: 'overlay-win', grid: 'win-grid', items: WIN_OPTIONS,
+    current: winId(settings), vis: winVis, cls: 'win-tile', onPick,
+  });
+}
+export function hideWins() { $('overlay-win').hidden = true; }
+
+export function showBots(settings, onPick) {
+  choiceGallery({
+    overlay: 'overlay-bots', grid: 'bots-grid', items: BOT_LEVELS,
+    current: settings.botLevel || 'normal', vis: botVis, cls: 'bot-tile',
+    onPick: (b) => onPick(b.id),
+  });
+}
+export function hideBots() { $('overlay-bots').hidden = true; }
+
+/** Met à jour les quatre boutons du salon. */
+function renderChoiceButtons(settings) {
+  choiceButton({ btn: 'btn-mode', name: 'mode-name', note: 'mode-note', mini: 'mode-mini',
+    item: modeById(modeId(settings)), vis: modeVis });
+  choiceButton({ btn: 'btn-pack', name: 'pack-name', note: 'pack-note', mini: 'pack-mini',
+    item: packById(settings.pack || 'classic'), vis: packVis });
+  choiceButton({ btn: 'btn-win', name: 'win-name', note: 'win-note', mini: 'win-mini',
+    item: winById(winId(settings)), vis: winVis });
+  choiceButton({ btn: 'btn-bots', name: 'bots-name', note: 'bots-note', mini: 'bots-mini',
+    item: botById(settings.botLevel || 'normal'), vis: botVis });
+}
+
+/** Liste des cartes du paquet choisi, avec ce que chacune fait vraiment. */
 /** Liste des cartes du paquet choisi, avec ce que chacune fait vraiment. */
 function renderCatalog(settings) {
   const list = $('card-list');

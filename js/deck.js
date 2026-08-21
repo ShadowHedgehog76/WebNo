@@ -232,6 +232,34 @@ export const MODES = [
   },
 ];
 
+/** Les conditions de victoire proposées. */
+export const WIN_OPTIONS = [
+  { id: 'p200', winCondition: 'points', targetScore: 200, name: '200 points',
+    tagline: 'Partie courte : deux ou trois manches suffisent.', gauge: 0.4 },
+  { id: 'p300', winCondition: 'points', targetScore: 300, name: '300 points',
+    tagline: 'Le bon compromis entre rythme et remontées possibles.', gauge: 0.6 },
+  { id: 'p500', winCondition: 'points', targetScore: 500, name: '500 points',
+    tagline: 'La partie longue, où rien n\'est joué avant la fin.', gauge: 1 },
+  { id: 'single', winCondition: 'single', name: 'Une seule manche',
+    tagline: 'Le premier à vider sa main remporte tout, sans décompte.', gauge: 0 },
+];
+export function winId(settings = {}) {
+  if (settings.winCondition === 'single') return 'single';
+  return 'p' + (settings.targetScore || 500);
+}
+export const winById = (id) => WIN_OPTIONS.find((w) => w.id === id) || WIN_OPTIONS[2];
+
+/** Les niveaux de jeu des bots. */
+export const BOT_LEVELS = [
+  { id: 'easy', name: 'Facile', force: 1,
+    tagline: 'Ils jouent au hasard plus souvent qu\'à leur tour et oublient d\'annoncer UNO.' },
+  { id: 'normal', name: 'Normal', force: 2,
+    tagline: 'Ils gardent leurs jokers, visent le joueur en tête et dénoncent parfois.' },
+  { id: 'hard', name: 'Difficile', force: 3,
+    tagline: 'Ils comptent les couleurs, épargnent leur camp et ne pardonnent aucun oubli.' },
+];
+export const botById = (id) => BOT_LEVELS.find((b) => b.id === id) || BOT_LEVELS[1];
+
 export function modeId(settings = {}) {
   return settings.mode === 'team' ? 'team' + (settings.teamSize || 2) : 'solo';
 }

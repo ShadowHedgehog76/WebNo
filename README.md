@@ -9,8 +9,10 @@ les navigateurs se parlent directement en WebRTC (via [PeerJS](https://peerjs.co
 - **Bouton « Voir les règles »** : il ouvre une grille où chaque carte du paquet choisi occupe sa
   propre case, avec son dessin, son nom et son effet — et les descriptions suivent les règles
   réellement activées, pour que tout le monde parte avec les mêmes informations.
-- **Mode de jeu et paquet** se choisissent chacun par un bouton illustré, qui ouvre une galerie de
-  vignettes : la table et ses places pour les modes, quatre cartes sur leur feutre pour les paquets.
+- **Les quatre réglages** — mode de jeu, paquet, condition de victoire et niveau des bots — se
+  choisissent chacun par un bouton illustré qui ouvre une galerie de vignettes : la table et ses
+  places pour les modes, quatre cartes sur leur feutre pour les paquets, l'objectif et sa jauge
+  pour la victoire, un petit robot et ses barres de force pour les bots.
 - **Salon avec code et QR code** : l'hôte crée la room, obtient un code à 5 caractères, un lien
   `…/#CODE` et un **QR code affiché à l'écran** (agrandissable d'un clic pour être scanné de loin —
   pratique en mode party où douze personnes doivent rejoindre). Les joueurs le scannent avec
