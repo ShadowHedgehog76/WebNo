@@ -1,5 +1,5 @@
 // ui.js — rendu du DOM : table 3D, mains, salon, overlays
-import { COLOR_LABEL, isWild, colorsOf } from './deck.js';
+import { COLOR_LABEL, isWild, colorsOf, cardCatalog } from './deck.js';
 import { qrSvg } from './qr.js';
 
 /** Lien d'invitation d'une room. */
@@ -205,6 +205,7 @@ export function renderLobby({ code, players, settings, isHost, maxPlayers = 4 },
       + 'A, B, A, B… et chaque équipe voit le jeu de ses coéquipiers.';
   }
   $('team-opts').hidden = !team;
+  renderCatalog(settings);
   const pk = $('pack-note');
   pk.hidden = settings.pack !== 'flip';
   if (settings.pack === 'flip') {
@@ -227,6 +228,43 @@ export function renderLobby({ code, players, settings, isHost, maxPlayers = 4 },
     }
     start.disabled = !ok;
     $('lobby-status').textContent = why;
+  }
+}
+
+/** Liste des cartes du paquet choisi, avec ce que chacune fait vraiment. */
+function renderCatalog(settings) {
+  const list = $('card-list');
+  if (!list) return;
+  const entries = cardCatalog(settings);
+  const key = (settings.pack || 'classic') + ':' + entries.map((e) => e.name).join('|')
+    + ':' + entries.map((e) => e.desc.length).join('.');
+  $('cards-count').textContent = `${entries.length} types`;
+  if (list.dataset.key === key) return;
+  list.dataset.key = key;
+  list.innerHTML = '';
+  let cote = null;
+  for (const e of entries) {
+    if (e.side !== cote) {
+      cote = e.side;
+      if (settings.pack === 'flip') {
+        const sep = document.createElement('li');
+        sep.className = 'cl-side ' + cote;
+        sep.textContent = cote === 'dark' ? 'Côté sombre' : 'Côté clair';
+        list.appendChild(sep);
+      }
+    }
+    const li = document.createElement('li');
+    li.className = 'cl-item';
+    const vign = document.createElement('div');
+    vign.className = 'cl-card';
+    vign.appendChild(cardEl({ id: 'cat-' + e.name, color: e.color, value: e.value }));
+    const txt = document.createElement('div');
+    txt.className = 'cl-text';
+    txt.innerHTML = '<b></b><em></em>';
+    txt.querySelector('b').textContent = e.name;
+    txt.querySelector('em').textContent = e.desc;
+    li.append(vign, txt);
+    list.appendChild(li);
   }
 }
 

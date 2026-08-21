@@ -142,3 +142,67 @@ export function buildFlipDeck(copies = 1, rng = Math.random) {
   }
   return deck;
 }
+
+/* ─────────────── catalogue des cartes, pour le salon ───────────────
+   Les descriptions suivent les règles réellement activées : inutile
+   d'annoncer une accumulation ou un échange de mains si l'hôte les a
+   désactivés.                                                         */
+export function cardCatalog(settings = {}) {
+  const s = {
+    pack: 'classic', stacking: true, sevenZero: true, bluff: false, ...settings,
+  };
+  const list = [];
+  const add = (side, color, value, name, desc) => list.push({ side, color, value, name, desc });
+
+  /* ── côté clair ── */
+  add('light', 'red', '5', 'Chiffres 0 à 9',
+    'La base du jeu : une carte se pose sur la même couleur ou sur le même chiffre.');
+
+  if (s.sevenZero) {
+    add('light', 'green', '7', 'Le 7',
+      'En le posant, échangez toute votre main avec celle du joueur de votre choix.');
+    add('light', 'yellow', '0', 'Le 0',
+      'Toutes les mains changent de propriétaire et passent au voisin, dans le sens du jeu.');
+  }
+
+  add('light', 'blue', 'skip', 'Passe',
+    'Le joueur suivant saute son tour.');
+  add('light', 'green', 'reverse', 'Sens',
+    'Le sens de rotation s\'inverse. À deux joueurs, elle revient à faire passer le tour.');
+  add('light', 'red', 'draw2', '+2',
+    s.stacking
+      ? 'Le suivant pioche 2 cartes et passe son tour — sauf s\'il réplique avec un +2 ou un +4, qui fait grimper la pile.'
+      : 'Le joueur suivant pioche 2 cartes et passe son tour.');
+  add('light', 'wild', 'wild', 'Joker',
+    'Posable à tout moment. Vous annoncez la couleur qui continue la partie.');
+  add('light', 'wild', 'wild4', '+4',
+    (s.stacking
+      ? 'Vous choisissez la couleur et le suivant pioche 4 cartes, sauf s\'il répond par un autre +4. '
+      : 'Vous choisissez la couleur et le joueur suivant pioche 4 cartes. ')
+    + (s.bluff
+      ? 'Il peut vous accuser de bluff si vous pouviez jouer la couleur en cours.'
+      : 'La contestation est désactivée : personne ne peut vous accuser de bluff.'));
+
+  if (s.pack !== 'flip') return list;
+
+  /* ── pack Flip ── */
+  add('light', 'red', 'flip', 'Retournement',
+    'Toute la partie bascule de l\'autre côté : les mains, la défausse et la couleur en cours '
+    + 'montrent leur autre face. Elle se pose des deux côtés.');
+
+  add('dark', 'pink', '5', 'Chiffres — côté sombre',
+    'Mêmes règles, mais dans les couleurs sombres : rose, turquoise, orange et violet.');
+  add('dark', 'purple', 'reverse', 'Sens — côté sombre',
+    'Le sens de rotation s\'inverse, comme du côté clair.');
+  add('dark', 'teal', 'skipAll', 'Tout le monde passe',
+    'Tous les autres joueurs sautent leur tour : vous rejouez immédiatement.');
+  add('dark', 'orange', 'draw5', '+5',
+    s.stacking
+      ? 'Le suivant pioche 5 cartes, sauf s\'il réplique par un autre +5 pour faire grimper la pile.'
+      : 'Le joueur suivant pioche 5 cartes et passe son tour.');
+  add('dark', 'wild', 'wild', 'Joker — côté sombre',
+    'Posable à tout moment. Vous annoncez la couleur sombre qui continue.');
+  add('dark', 'wild', 'wildDraw', 'Joker pioche-couleur',
+    'Vous choisissez une couleur : le joueur suivant pioche jusqu\'à ce qu\'il tombe dessus.');
+  return list;
+}

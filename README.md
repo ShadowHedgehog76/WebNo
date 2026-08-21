@@ -6,6 +6,9 @@ les navigateurs se parlent directement en WebRTC (via [PeerJS](https://peerjs.co
 
 ## Ce que ça fait
 
+- **Catalogue des cartes** : le salon affiche à droite la liste des cartes du paquet choisi, avec
+  leur nom, leur dessin et ce qu'elles font — et les descriptions suivent les règles réellement
+  activées, pour que tout le monde parte avec les mêmes informations.
 - **Salon avec code et QR code** : l'hôte crée la room, obtient un code à 5 caractères, un lien
   `…/#CODE` et un **QR code affiché à l'écran** (agrandissable d'un clic pour être scanné de loin —
   pratique en mode party où douze personnes doivent rejoindre). Les joueurs le scannent avec
