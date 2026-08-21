@@ -1403,24 +1403,75 @@ body[data-pack="flip"] .fc::after,
 .pack-tile.pack-extreme .pt-vis { background: radial-gradient(60% 70% at 50% 40%, #16304A, #060C14); }
 .pack-tile.pack-flip .pt-vis { background: radial-gradient(60% 70% at 50% 40%, #2B2050, #0C0818); }
 
-/* ══════════════════════ aperçu d'un mode de jeu ══════════════════════ */
-.md-vis { position: relative; display: block; width: 100%; height: 100%; }
-.md-table {
-  position: absolute; left: 50%; top: 50%; translate: -50% -50%;
-  width: 62%; height: 52%; border-radius: 50% / 46%;
-  background: radial-gradient(60% 70% at 50% 35%, var(--felt-1), var(--felt-3));
-  box-shadow: inset 0 0 14px rgba(0,0,0,.5), 0 3px 8px rgba(0,0,0,.4);
-  border: 2px solid rgba(255,255,255,.1);
+/* ══════════════════════ aperçu d'un mode de jeu ══════════════════════
+   Une vraie petite table vue de trois quarts : feutre, piles au centre et
+   les mains des joueurs tout autour, colorées par camp.                 */
+.md-vis {
+  position: relative; display: block; width: 100%; height: 100%;
+  perspective: 340px;
 }
+.md-felt {
+  position: absolute; left: 50%; top: 50%;
+  width: 78%; height: 68%;
+  translate: -50% -50%; transform: rotateX(34deg);
+  border-radius: 50% / 46%;
+  background: radial-gradient(62% 68% at 50% 30%, var(--felt-1), var(--felt-2) 58%, var(--felt-3));
+  border: 3px solid #2A2C34;
+  box-shadow: 0 10px 18px -4px rgba(0,0,0,.75), inset 0 0 22px rgba(0,0,0,.55);
+}
+.md-felt::after {
+  content: ''; position: absolute; inset: 14%; border-radius: 50% / 46%;
+  border: 1px dashed rgba(255,255,255,.12);
+}
+/* les deux piles, posées au centre */
+.md-deck, .md-discard {
+  position: absolute; top: 50%; width: 8%; aspect-ratio: 2 / 3;
+  translate: 0 -50%; border-radius: 2px;
+  border: 1px solid rgba(255,255,255,.7);
+  box-shadow: 0 2px 4px rgba(0,0,0,.6);
+}
+.md-deck { left: 40%; background: #14151C; }
+.md-discard { right: 40%; background: linear-gradient(150deg, #FFEE7A, var(--yellow)); }
+
+/* chaque joueur et sa main */
 .md-seat {
-  position: absolute; width: 9.5%; aspect-ratio: 3 / 4; translate: -50% -50%;
-  border-radius: 3px; background: #C9D2E4;
-  border: 1px solid rgba(255,255,255,.5);
-  box-shadow: 0 2px 5px rgba(0,0,0,.55);
+  position: absolute; width: 19%; height: 14%;
+  translate: -50% -50%; rotate: var(--tilt, 0deg);
+  display: flex; justify-content: center; align-items: flex-end; gap: 1px;
+  filter: drop-shadow(0 2px 3px rgba(0,0,0,.6));
 }
-.md-seat.a { background: var(--green); }
-.md-seat.b { background: var(--red); }
-.pk-mini .md-vis { width: 76px; height: 56px; }
+.md-seat b {
+  display: block; width: 27%; height: 100%;
+  border-radius: 1.5px;
+  background: var(--camp, #C9D2E4);
+  border: .5px solid rgba(255,255,255,.75);
+}
+.md-seat b:nth-child(1) { rotate: -9deg; transform-origin: 50% 120%; }
+.md-seat b:nth-child(3) { rotate: 9deg;  transform-origin: 50% 120%; }
+.md-seat b:nth-child(2) { height: 108%; }
+.md-seat.a { --camp: #22C46B; }
+.md-seat.b { --camp: #FF5B52; }
+.md-seat.s0 { --camp: #FF5B52; }
+.md-seat.s1 { --camp: #3D9BE8; }
+.md-seat.s2 { --camp: #2ED47B; }
+.md-seat.s3 { --camp: #FFDE17; }
+/* au-delà de six joueurs les places se resserrent */
+.md-vis[data-seats="6"] .md-seat { width: 16.5%; height: 13%; }
+.md-vis[data-seats="8"] .md-seat { width: 14%; height: 12%; }
+
+.md-count {
+  position: absolute; right: 6px; top: 6px;
+  font-size: 9.5px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase;
+  color: #C6CDDC; background: rgba(8,10,16,.82); border: 1px solid rgba(255,255,255,.1);
+  padding: 3px 8px; border-radius: 99px;
+}
+.pack-tile:hover .md-felt { transform: rotateX(28deg) scale(1.03); transition: transform .3s var(--ease); }
+
+/* le même aperçu, en réduction, sur le bouton du salon */
+.pk-mini .md-vis { width: 76px; height: 56px; perspective: 180px; }
+.pk-mini .md-count { display: none; }
+.pk-mini .md-felt { width: 70%; height: 60%; border-width: 2px; }
+.pk-mini .md-seat { width: 24%; height: 17%; }
 .pt-vis .md-vis { width: 100%; height: 100%; }
 .mode-tile .pt-vis { background: radial-gradient(60% 70% at 50% 40%, #1B2233, #080B12); }
 

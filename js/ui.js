@@ -3,8 +3,8 @@ import {
   COLOR_LABEL, isWild, colorsOf, cardCatalog,
   PACKS, packById, MODES, modeById, modeId,
   WIN_OPTIONS, winById, winId, BOT_LEVELS, botById,
-} from './deck.js?v=202608220137';
-import { qrSvg } from './qr.js?v=202608220137';
+} from './deck.js?v=202608220144';
+import { qrSvg } from './qr.js?v=202608220144';
 
 /** Lien d'invitation d'une room. */
 export function joinUrl(code) {
@@ -256,22 +256,38 @@ export function renderLobby({ code, players, settings, isHost, maxPlayers = 4 },
    Mode, paquet, victoire et niveau des bots suivent tous le même schéma :
    un bouton illustré qui ouvre une galerie de vignettes.               */
 
-/** Aperçu d'un mode : les places autour de la table, colorées par camp. */
+/**
+ * Aperçu d'un mode : la table vue de trois quarts, avec ses piles au centre
+ * et les joueurs assis tout autour, chacun tenant ses cartes. Les camps
+ * alternent, ce qui rend l'ordre A, B, A, B… lisible sans le lire.
+ */
 function modeVis(mode) {
   const vis = document.createElement('span');
   vis.className = 'md-vis';
-  const table = document.createElement('span');
-  table.className = 'md-table';
-  vis.appendChild(table);
+  vis.dataset.seats = String(mode.seats);
+
+  const plateau = document.createElement('span');
+  plateau.className = 'md-felt';
+  plateau.innerHTML = '<i class="md-deck"></i><i class="md-discard"></i>';
+  vis.appendChild(plateau);
+
   for (let i = 0; i < mode.seats; i++) {
     const a = 90 + (i * 360) / mode.seats;
     const rad = (a * Math.PI) / 180;
-    const seat = document.createElement('i');
-    seat.className = 'md-seat' + (mode.teams ? (i % 2 === 0 ? ' a' : ' b') : '');
-    seat.style.left = (50 + 38 * Math.cos(rad)).toFixed(1) + '%';
-    seat.style.top = (50 + 32 * Math.sin(rad)).toFixed(1) + '%';
-    vis.appendChild(seat);
+    const place = document.createElement('i');
+    place.className = 'md-seat' + (mode.teams ? (i % 2 === 0 ? ' a' : ' b') : ' s' + (i % 4));
+    place.style.left = (50 + 43 * Math.cos(rad)).toFixed(1) + '%';
+    place.style.top = (50 + 35 * Math.sin(rad)).toFixed(1) + '%';
+    // la main s'incline comme si le joueur la tenait face à la table
+    place.style.setProperty('--tilt', ((a + 90) % 360 > 180 ? 10 : -10) + 'deg');
+    place.innerHTML = '<b></b><b></b><b></b>';
+    vis.appendChild(place);
   }
+
+  const compte = document.createElement('span');
+  compte.className = 'md-count';
+  compte.textContent = mode.seats + ' joueurs';
+  vis.appendChild(compte);
   return vis;
 }
 
