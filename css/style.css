@@ -1412,7 +1412,7 @@ body[data-pack="flip"] .fc::after,
 }
 .md-felt {
   position: absolute; left: 50%; top: 50%;
-  width: 78%; height: 68%;
+  width: 62%; height: 56%;
   translate: -50% -50%; transform: rotateX(34deg);
   border-radius: 50% / 46%;
   background: radial-gradient(62% 68% at 50% 30%, var(--felt-1), var(--felt-2) 58%, var(--felt-3));
@@ -1435,7 +1435,7 @@ body[data-pack="flip"] .fc::after,
 
 /* chaque joueur et sa main */
 .md-seat {
-  position: absolute; width: 19%; height: 14%;
+  position: absolute; height: 14%;
   translate: -50% -50%; rotate: var(--tilt, 0deg);
   display: flex; justify-content: center; align-items: flex-end; gap: 1px;
   filter: drop-shadow(0 2px 3px rgba(0,0,0,.6));
@@ -1456,8 +1456,12 @@ body[data-pack="flip"] .fc::after,
 .md-seat.s2 { --camp: #2ED47B; }
 .md-seat.s3 { --camp: #FFDE17; }
 /* au-delà de six joueurs les places se resserrent */
-.md-vis[data-seats="6"] .md-seat { width: 16.5%; height: 13%; }
-.md-vis[data-seats="8"] .md-seat { width: 14%; height: 12%; }
+/* plus la table est peuplée, plus le plateau se resserre pour libérer
+   la couronne où s'installent les mains */
+.md-vis[data-seats="6"] .md-seat { height: 13%; }
+.md-vis[data-seats="6"] .md-felt { width: 54%; height: 50%; }
+.md-vis[data-seats="8"] .md-seat { height: 11.5%; }
+.md-vis[data-seats="8"] .md-felt { width: 50%; height: 46%; }
 
 .md-count {
   position: absolute; right: 6px; top: 6px;
@@ -1465,7 +1469,8 @@ body[data-pack="flip"] .fc::after,
   color: #C6CDDC; background: rgba(8,10,16,.82); border: 1px solid rgba(255,255,255,.1);
   padding: 3px 8px; border-radius: 99px;
 }
-.pack-tile:hover .md-felt { transform: rotateX(28deg) scale(1.03); transition: transform .3s var(--ease); }
+.md-vis { transition: scale .3s var(--ease); }
+.pack-tile:hover .md-vis { scale: 1.04; }
 
 /* le même aperçu, en réduction, sur le bouton du salon */
 .pk-mini .md-vis { width: 76px; height: 56px; perspective: 180px; }

@@ -3,8 +3,8 @@ import {
   COLOR_LABEL, isWild, colorsOf, cardCatalog,
   PACKS, packById, MODES, modeById, modeId,
   WIN_OPTIONS, winById, winId, BOT_LEVELS, botById,
-} from './deck.js?v=202608220144';
-import { qrSvg } from './qr.js?v=202608220144';
+} from './deck.js?v=202608220154';
+import { qrSvg } from './qr.js?v=202608220154';
 
 /** Lien d'invitation d'une room. */
 export function joinUrl(code) {
@@ -271,13 +271,21 @@ function modeVis(mode) {
   plateau.innerHTML = '<i class="md-deck"></i><i class="md-discard"></i>';
   vis.appendChild(plateau);
 
+  // Les mains se posent autour du feutre : le rayon suit l'ellipse du plateau
+  // élargie de la demi-largeur d'une main, pour qu'aucune ne mord dessus.
+  const large = mode.seats > 6 ? 12 : (mode.seats > 4 ? 14 : 17);
+  const demiFeutre = mode.seats > 6 ? 25 : (mode.seats > 4 ? 27 : 31);
+  const demiHaut = mode.seats > 6 ? 23 : (mode.seats > 4 ? 25 : 28);
+  const rx = demiFeutre + large / 2 + 2;
+  const ry = demiHaut + 9;
   for (let i = 0; i < mode.seats; i++) {
     const a = 90 + (i * 360) / mode.seats;
     const rad = (a * Math.PI) / 180;
     const place = document.createElement('i');
     place.className = 'md-seat' + (mode.teams ? (i % 2 === 0 ? ' a' : ' b') : ' s' + (i % 4));
-    place.style.left = (50 + 43 * Math.cos(rad)).toFixed(1) + '%';
-    place.style.top = (50 + 35 * Math.sin(rad)).toFixed(1) + '%';
+    place.style.width = large + '%';
+    place.style.left = (50 + rx * Math.cos(rad)).toFixed(1) + '%';
+    place.style.top = (50 + ry * Math.sin(rad)).toFixed(1) + '%';
     // la main s'incline comme si le joueur la tenait face à la table
     place.style.setProperty('--tilt', ((a + 90) % 360 > 180 ? 10 : -10) + 'deg');
     place.innerHTML = '<b></b><b></b><b></b>';
