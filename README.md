@@ -37,6 +37,13 @@ les navigateurs se parlent directement en WebRTC (via [PeerJS](https://peerjs.co
   synthétisés au Web Audio** — aucun fichier audio, aucune licence, rien à télécharger.
   Réglages Musique / Effets dans la console en haut à droite, mémorisés d'une session à l'autre.
 
+## Les paquets
+
+| Paquet | Ce qu'il change |
+|---|---|
+| **Classique** | Le jeu UNO habituel : 108 cartes, quatre couleurs. |
+| **Flip** | Chaque carton a **deux faces sans aucun rapport** — une claire, une sombre, avec ses propres couleurs (rose, turquoise, orange, violet) et ses propres cartes : *tout le monde passe*, *+5*, *joker pioche-couleur*. Une carte **Retournement** fait basculer toute la partie d'un côté à l'autre : mains, défausse et couleur en cours changent d'un coup. Et comme les autres tiennent leurs cartes tournées vers eux, **vous voyez déjà leur autre face** — c'est tout l'intérêt. |
+
 ## Les règles maison (réglables par l'hôte)
 
 | Règle | Effet |

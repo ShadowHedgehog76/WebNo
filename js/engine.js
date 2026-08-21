@@ -1,5 +1,8 @@
 // engine.js — moteur de jeu UNO autoritaire (tourne uniquement chez l'hôte)
-import { buildDeck, decksNeeded, shuffle, isWild, isNumber, cardPoints, cardLabel, COLORS, COLOR_LABEL } from './deck.js';
+import {
+  buildDeck, buildFlipDeck, decksNeeded, shuffle, isWild, isNumber, cardPoints,
+  cardLabel, face, colorsOf, COLORS, COLOR_LABEL, DRAW_AMOUNT,
+} from './deck.js';
 
 export const DEFAULT_SETTINGS = {
   mode: 'solo',            // 'solo' | 'team'
@@ -7,6 +10,7 @@ export const DEFAULT_SETTINGS = {
   sevenZero: true,         // Règle 7-0
   jumpIn: true,            // À la volée
   bluff: false,            // Dénonciation du +4 (désactivée par défaut)
+  pack: 'classic',         // 'classic' | 'flip' (côté clair / côté sombre)
   unoRule: true,           // Obligation de dire UNO
   winCondition: 'points',  // 'points' | 'single'
   targetScore: 500,
@@ -54,6 +58,27 @@ export class UnoGame {
 
   topCard() { return this.discard[this.discard.length - 1]; }
 
+  /** Face visible d'une carte, selon le côté en cours (pack Flip). */
+  face(card) { return face(card, this.side); }
+
+  /**
+   * Carte telle qu'on la montre : sa face active, et en pack Flip l'autre
+   * face — celle que les adversaires voient puisqu'ils tiennent le carton
+   * tourné vers eux.
+   */
+  publicCard(card) {
+    if (!card) return null;
+    const f = this.face(card);
+    const out = { id: card.id, color: f.color, value: f.value };
+    if (card.chosen) out.chosen = card.chosen;
+    if (this.isFlip) out.back = { ...face(card, this.otherSide()) };
+    return out;
+  }
+
+  otherSide() { return this.side === 'light' ? 'dark' : 'light'; }
+
+  get isFlip() { return this.settings.pack === 'flip'; }
+
   /** Le jeu se compte-t-il par groupes ? */
   isTeamPlay() { return this.settings.mode === 'team'; }
 
@@ -66,7 +91,9 @@ export class UnoGame {
   // ------------------------------------------------------------ round setup
   startRound() {
     this.roundNo++;
-    this.deck = shuffle(buildDeck(decksNeeded(this.players.length, this.settings.startCards)));
+    this.side = 'light';
+    const copies = decksNeeded(this.players.length, this.settings.startCards);
+    this.deck = shuffle(this.isFlip ? buildFlipDeck(copies) : buildDeck(copies));
     this.discard = [];
     this.direction = 1;
     this.pendingDraw = 0;
@@ -88,18 +115,18 @@ export class UnoGame {
     // Première carte retournée : on force une carte chiffrée pour un départ neutre
     let first = this.drawFromDeck();
     let guard = 0;
-    while (!isNumber(first) && guard++ < 200) {
+    while (!isNumber(this.face(first)) && guard++ < 200) {
       this.deck.push(first);
       shuffle(this.deck);
       first = this.drawFromDeck();
     }
     this.discard.push(first);
-    this.currentColor = first.color;
+    this.currentColor = this.face(first).color;
 
     this.dealer = (this.dealer + 1) % this.players.length;
     this.turnIndex = (this.dealer + 1) % this.players.length;
 
-    this.say('round', `Manche ${this.roundNo} — carte de départ : ${cardLabel(first)}`);
+    this.say('round', `Manche ${this.roundNo} — carte de départ : ${cardLabel(this.face(first))}`);
     this.say('turn', `Au tour de ${this.current.name}`);
     this.version++;
     return this;
@@ -114,7 +141,7 @@ export class UnoGame {
   recycle() {
     if (this.discard.length <= 1) return;
     const top = this.discard.pop();
-    const recycled = this.discard.map((c) => (isWild(c) ? { ...c, color: 'wild' } : c));
+    const recycled = this.discard.map((c) => (c.chosen ? { ...c, chosen: undefined } : c));
     this.deck = shuffle(recycled);
     this.discard = [top];
     this.say('info', 'La pioche est vide : la défausse est remélangée.');
@@ -134,16 +161,19 @@ export class UnoGame {
 
   // ------------------------------------------------------------- validation
   matches(card, allowWild = true) {
-    if (isWild(card)) return allowWild;
-    const top = this.topCard();
-    return card.color === this.currentColor || card.value === top.value;
+    const f = this.face(card);
+    if (isWild(f)) return allowWild;
+    const t = this.face(this.topCard());
+    return f.color === this.currentColor || f.value === t.value;
   }
 
   /** Carte jouable pour répondre à une accumulation en cours. */
   stackable(card) {
     if (!this.settings.stacking) return false;
-    if (this.pendingKind === 'draw2') return card.value === 'draw2' || card.value === 'wild4';
-    if (this.pendingKind === 'wild4') return card.value === 'wild4';
+    const v = this.face(card).value;
+    if (this.pendingKind === 'draw2') return v === 'draw2' || v === 'wild4';
+    if (this.pendingKind === 'wild4') return v === 'wild4';
+    if (this.pendingKind === 'draw5') return v === 'draw5';
     return false;
   }
 
@@ -152,9 +182,9 @@ export class UnoGame {
     if (!this.settings.jumpIn) return false;
     if (this.pendingDraw > 0) return false;
     if (player.id === this.current.id) return false;
-    const top = this.topCard();
-    if (isWild(card) || isWild(top)) return false;
-    return card.color === top.color && card.value === top.value;
+    const f = this.face(card), t = this.face(this.topCard());
+    if (isWild(f) || isWild(t)) return false;
+    return f.color === t.color && f.value === t.value;
   }
 
   legalCardsFor(player) {
@@ -208,6 +238,7 @@ export class UnoGame {
     const idx = player.hand.findIndex((c) => c.id === cardId);
     if (idx === -1) return { ok: false, error: 'Carte absente de votre main' };
     const card = player.hand[idx];
+    const f = this.face(card);
     const jumping = player.id !== this.current.id;
 
     if (jumping) {
@@ -220,15 +251,18 @@ export class UnoGame {
       return { ok: false, error: 'Carte non jouable' };
     }
 
-    if (isWild(card) && !COLORS.includes(color)) return { ok: false, error: 'Choisissez une couleur' };
-    if (this.settings.sevenZero && card.value === '7' && this.players.length > 1) {
+    if (isWild(f) && !colorsOf(this.side).includes(color)) return { ok: false, error: 'Choisissez une couleur' };
+    if (this.settings.sevenZero && f.value === '7' && this.players.length > 1) {
       const target = this.byId(targetId);
       if (!target || target.id === player.id) return { ok: false, error: 'Choisissez un joueur pour l\'échange' };
     }
 
     // mémorise la couleur en vigueur AVANT la pose (pour la dénonciation du +4)
     const colorBefore = this.currentColor;
-    const hadColor = player.hand.some((c, i) => i !== idx && !isWild(c) && c.color === colorBefore);
+    const hadColor = player.hand.some((c, i) => {
+      const cf = this.face(c);
+      return i !== idx && !isWild(cf) && cf.color === colorBefore;
+    });
 
     if (jumping) {
       this.turnIndex = player.seat;
@@ -236,13 +270,13 @@ export class UnoGame {
     }
 
     player.hand.splice(idx, 1);
-    const played = isWild(card) ? { ...card, chosen: color } : card;
+    const played = isWild(f) ? { ...card, chosen: color } : card;
     this.discard.push(played);
-    this.currentColor = isWild(card) ? color : card.color;
+    this.currentColor = isWild(f) ? color : f.color;
     this.drawnCardId = null;
 
-    this.say('play', `${player.name} pose ${cardLabel(card)}${isWild(card) ? ` (${COLOR_LABEL[color]})` : ''}`,
-      { playerId: player.id, card: played });
+    this.say('play', `${player.name} pose ${cardLabel(f)}${isWild(f) ? ` (${COLOR_LABEL[color]})` : ''}`,
+      { playerId: player.id, card: this.publicCard(played) });
 
     // UNO
     if (player.hand.length === 1) {
@@ -267,8 +301,9 @@ export class UnoGame {
   applyEffect(player, card, ctx) {
     const n = this.players.length;
     let skip = 0;
+    const f = this.face(card);
 
-    switch (card.value) {
+    switch (f.value) {
       case 'skip':
         skip = 1;
         this.say('effect', `${this.playerAt(1).name} passe son tour.`);
@@ -283,10 +318,40 @@ export class UnoGame {
         }
         break;
       case 'draw2':
-        this.pendingDraw += 2;
-        this.pendingKind = 'draw2';
-        this.say('effect', `+2 — accumulation : ${this.pendingDraw} cartes en attente.`);
+      case 'draw5':
+        this.pendingDraw += DRAW_AMOUNT[f.value];
+        this.pendingKind = f.value;
+        this.say('effect', `${DRAW_AMOUNT[f.value] === 5 ? '+5' : '+2'} — accumulation : ${this.pendingDraw} cartes en attente.`);
         break;
+      case 'skipAll':
+        skip = n - 1;
+        this.say('effect', `${player.name} saute tout le monde et rejoue.`);
+        break;
+      case 'flip': {
+        this.side = this.otherSide();
+        this.currentColor = this.face(card).color;
+        this.pendingDraw = 0; this.pendingKind = null;
+        this.say('flip', `Retournement ! Tout le monde passe du côté ${this.side === 'dark' ? 'sombre' : 'clair'}.`,
+          { side: this.side });
+        break;
+      }
+      case 'wildDraw': {
+        // le joueur suivant pioche jusqu'à trouver la couleur demandée
+        const cible = this.playerAt(1);
+        let pioche = 0;
+        while (pioche < 15) {
+          const c = this.drawFromDeck();
+          if (!c) break;
+          cible.hand.push(c);
+          pioche++;
+          if (this.face(c).color === ctx.color) break;
+        }
+        if (cible.hand.length > 1) cible.mustCallUno = false;
+        this.say('penalty', `${cible.name} pioche ${pioche} carte${pioche > 1 ? 's' : ''} jusqu'au ${COLOR_LABEL[ctx.color].toLowerCase()}.`,
+          { playerId: cible.id, count: pioche });
+        skip = 1;
+        break;
+      }
       case 'wild4':
         this.pendingDraw += 4;
         this.pendingKind = 'wild4';
@@ -435,7 +500,7 @@ export class UnoGame {
     const detail = [];
     let points = 0;
     for (const p of this.players) {
-      const pts = p.hand.reduce((s, c) => s + cardPoints(c), 0);
+      const pts = p.hand.reduce((s, c) => s + cardPoints(this.face(c)), 0);
       detail.push({ id: p.id, name: p.name, cards: p.hand.length, points: pts });
       const sameSide = this.isTeamPlay() ? p.team === winner.team : p.id === winner.id;
       if (!sameSide) points += pts;
@@ -523,7 +588,7 @@ export class UnoGame {
       ? this.players.filter((p) => p.team === me.team && p.id !== me.id)
       : [];
     const allyHands = {};
-    for (const a of allies) allyHands[a.id] = a.hand.map((c) => ({ ...c }));
+    for (const a of allies) allyHands[a.id] = a.hand.map((c) => this.publicCard(c));
     const calloutTargets = (this.settings.unoRule && me)
       ? this.players.filter((p) => p.mustCallUno && p.id !== playerId).map((p) => p.id)
       : [];
@@ -538,7 +603,9 @@ export class UnoGame {
       turnId: this.phase === 'playing' ? this.current.id : null,
       direction: this.direction,
       currentColor: this.currentColor,
-      top: top ? { ...top } : null,
+      side: this.side,
+      pack: this.settings.pack || 'classic',
+      top: this.publicCard(top),
       discardCount: this.discard.length,
       deckCount: this.deck ? this.deck.length : 0,
       pendingDraw: this.pendingDraw,
@@ -547,8 +614,11 @@ export class UnoGame {
         id: p.id, name: p.name, isBot: p.isBot, connected: p.connected,
         seat: p.seat, team: p.team, score: p.score,
         handCount: p.hand.length, mustCallUno: p.mustCallUno,
+        // en pack Flip on voit l'autre face des cartes que les autres tiennent
+        backs: (this.isFlip && p.id !== playerId)
+          ? p.hand.map((c) => ({ ...face(c, this.otherSide()) })) : undefined,
       })),
-      hand: me ? me.hand.map((c) => ({ ...c })) : [],
+      hand: me ? me.hand.map((c) => this.publicCard(c)) : [],
       allyIds: allies.map((a) => a.id),
       allyHands: allies.length ? allyHands : null,
       legal: me ? this.legalCardsFor(me) : [],

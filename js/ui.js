@@ -1,5 +1,5 @@
 // ui.js — rendu du DOM : table 3D, mains, salon, overlays
-import { COLOR_LABEL, isWild } from './deck.js';
+import { COLOR_LABEL, isWild, colorsOf } from './deck.js';
 import { qrSvg } from './qr.js';
 
 /** Lien d'invitation d'une room. */
@@ -15,13 +15,26 @@ function scrollIntoView(el, opts) {
     try { el.scrollIntoView(opts); } catch (_) { /* option non supportée */ }
   }
 }
-const GLYPH = { draw2: '+2', wild4: '+4', wild: '' };
-const COLOR_HEX = { red: '#ED1C24', yellow: '#FFDE17', green: '#00A651', blue: '#0072BC' };
+const GLYPH = { draw2: '+2', wild4: '+4', draw5: '+5', wild: '', wildDraw: '' };
+const COLOR_HEX = {
+  red: '#ED1C24', yellow: '#FFDE17', green: '#00A651', blue: '#0072BC',
+  pink: '#E5127D', teal: '#00A9A5', orange: '#F58220', purple: '#7B4FA8',
+};
 
 // Symboles dessinés plutôt que typographiés : ils restent nets à toute taille
 const SYMBOL = {
   skip: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round"><circle cx="12" cy="12" r="8.4"/><line x1="6.1" y1="17.9" x2="17.9" y2="6.1"/></svg>',
   reverse: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M7 22.2 2.2 14.6h2.9V3.4h3.8v11.2h2.9z"/><path d="M17 1.8l4.8 7.6h-2.9v11.2h-3.8V9.4h-2.9z"/></svg>',
+  // côté sombre : tout le monde passe
+  skipAll: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round">'
+    + '<circle cx="12" cy="13.5" r="7.4"/><line x1="6.8" y1="18.7" x2="17.2" y2="8.3"/>'
+    + '<circle cx="4" cy="4" r="1.6" fill="currentColor" stroke="none"/>'
+    + '<circle cx="12" cy="2.6" r="1.6" fill="currentColor" stroke="none"/>'
+    + '<circle cx="20" cy="4" r="1.6" fill="currentColor" stroke="none"/></svg>',
+  // le retournement : la carte se retourne
+  flip: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">'
+    + '<path d="M20.5 9.5A9 9 0 0 0 4.6 7"/><path d="M3.5 14.5A9 9 0 0 0 19.4 17"/>'
+    + '<path d="M4.6 2.5v4.6h4.6"/><path d="M19.4 21.5v-4.6h-4.6"/></svg>',
 };
 const WHEEL = '<span class="cw"></span>';
 
@@ -65,8 +78,14 @@ export function cardEl(card, opts = {}) {
   const glyph = document.createElement('div');
   glyph.className = 'glyph';
 
-  if (card.value === 'wild') {
+  if (card.value === 'wild' || card.value === 'wildDraw') {
     glyph.classList.add('wheel');
+    if (card.value === 'wildDraw') {
+      const plus = document.createElement('i');
+      plus.className = 'wheel-plus';
+      plus.textContent = '+';
+      glyph.appendChild(plus);
+    }
   } else if (SYMBOL[card.value]) {
     glyph.innerHTML = SYMBOL[card.value];
     glyph.classList.add('sm');
@@ -82,7 +101,7 @@ export function cardEl(card, opts = {}) {
   for (const pos of ['tl', 'br']) {
     const c = document.createElement('span');
     c.className = 'corner ' + pos;
-    if (card.value === 'wild') c.innerHTML = WHEEL;
+    if (card.value === 'wild' || card.value === 'wildDraw') c.innerHTML = WHEEL;
     else if (SYMBOL[card.value]) c.innerHTML = SYMBOL[card.value];
     else c.textContent = GLYPH[card.value] ?? card.value;
     d.appendChild(c);
@@ -186,6 +205,13 @@ export function renderLobby({ code, players, settings, isHost, maxPlayers = 4 },
       + 'A, B, A, B… et chaque équipe voit le jeu de ses coéquipiers.';
   }
   $('team-opts').hidden = !team;
+  const pk = $('pack-note');
+  pk.hidden = settings.pack !== 'flip';
+  if (settings.pack === 'flip') {
+    pk.textContent = 'Chaque carton a deux faces sans rapport. Une carte Retournement fait '
+      + 'basculer toute la partie du côté clair au côté sombre — et vous voyez déjà l\'autre '
+      + 'face des cartes que les autres tiennent.';
+  }
   $('settings').classList.toggle('locked', !isHost);
   document.querySelector('.seg[data-setting="targetScore"]').style.opacity = settings.winCondition === 'points' ? '1' : '.35';
 
@@ -245,9 +271,9 @@ function seatPosition(rel, total) {
 }
 
 /** Éventail tenu par un joueur : des dos, ou les faces pour un coéquipier. */
-function renderFan(host, count, cards) {
+function renderFan(host, count, cards, verso = false) {
   const shown = cards ? cards.length : Math.min(count, 12);
-  const key = (cards ? cards.map((c) => c.id).join(',') : 'dos') + ':' + shown;
+  const key = (cards ? cards.map((c) => (c.id || c.color + c.value)).join(',') : 'dos') + ':' + shown + (verso ? ':v' : '');
   if (host.dataset.key !== key) {
     host.dataset.key = key;
     host.innerHTML = '';
@@ -257,8 +283,9 @@ function renderFan(host, count, cards) {
       if (cards) {
         const card = cards[i];
         c.classList.add('face', isWild(card) ? 'wild' : card.color);
+        if (verso) c.classList.add('verso');
         const b = document.createElement('b');
-        if (card.value === 'wild') b.innerHTML = WHEEL;
+        if (card.value === 'wild' || card.value === 'wildDraw') b.innerHTML = WHEEL;
         else if (SYMBOL[card.value]) b.innerHTML = SYMBOL[card.value];
         else b.textContent = GLYPH[card.value] ?? card.value;
         c.appendChild(b);
@@ -290,8 +317,10 @@ function renderOpponent(box, p, state, handlers) {
   box.querySelector('.pb-name').textContent = p.name;
   box.querySelector('.pb-count').textContent = p.handCount;
 
-  const revealed = (ally && state.allyHands && state.allyHands[p.id]) || null;
-  renderFan(box.querySelector('.hand-fan'), p.handCount, revealed);
+  // en équipe on voit la face active du coéquipier ; en pack Flip, chacun
+  // voit l'autre face des cartes que les autres tiennent devant eux
+  const revealed = (ally && state.allyHands && state.allyHands[p.id]) || p.backs || null;
+  renderFan(box.querySelector('.hand-fan'), p.handCount, revealed, !!p.backs && !ally);
 
   const meta = box.querySelector('.pb-meta');
   meta.innerHTML = '';
@@ -455,6 +484,8 @@ export function renderGame(state, handlers = {}) {
   $('dir-ring').classList.toggle('ccw', state.direction === -1);
   const table = $('table3d');
   if (table) table.style.setProperty('--play-color', COLOR_HEX[state.currentColor] || 'rgba(255,255,255,.2)');
+  document.body.classList.toggle('dark-side', state.side === 'dark');
+  document.body.classList.toggle('pack-flip', state.pack === 'flip');
 
   const pb = $('pending-badge');
   if (state.pendingDraw > 0) {
@@ -503,9 +534,18 @@ function overlayPick(overlayId, wire) {
   });
 }
 
-export function pickColor() {
+export function pickColor(side = 'light') {
+  const box = $('color-picker');
+  box.innerHTML = '';
+  for (const c of colorsOf(side)) {
+    const b = document.createElement('button');
+    b.className = 'col ' + c;
+    b.dataset.color = c;
+    b.setAttribute('aria-label', COLOR_LABEL[c] || c);
+    box.appendChild(b);
+  }
   return overlayPick('overlay-color', (done) => {
-    const btns = document.querySelectorAll('#overlay-color .col');
+    const btns = box.querySelectorAll('.col');
     btns.forEach((b) => { b.onclick = () => done(b.dataset.color); });
     return () => btns.forEach((b) => { b.onclick = null; });
   });
@@ -587,6 +627,19 @@ export function showGameOver(state) {
 export function hideGameOver() { $('overlay-game').hidden = true; }
 
 /** Pluie de confettis aux couleurs du jeu. */
+/** Annonce le passage d'un côté à l'autre : toutes les cartes se retournent. */
+export function flipAnnounce(side) {
+  const el = $('flip-flash');
+  if (!el) return;
+  el.querySelector('b').textContent = side === 'dark' ? 'CÔTÉ SOMBRE' : 'CÔTÉ CLAIR';
+  el.hidden = false;
+  document.body.classList.add('flipping');
+  clearTimeout(flipAnnounce.t1);
+  clearTimeout(flipAnnounce.t2);
+  flipAnnounce.t1 = setTimeout(() => document.body.classList.remove('flipping'), 600);
+  flipAnnounce.t2 = setTimeout(() => { el.hidden = true; }, 1600);
+}
+
 export function confetti(count = 90) {
   const box = $('confetti');
   if (!box) return;

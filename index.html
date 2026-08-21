@@ -138,6 +138,15 @@
           </div>
 
           <div class="set-group">
+            <span class="set-title">Paquet</span>
+            <div class="seg" data-setting="pack">
+              <button data-value="classic" class="on">Classique</button>
+              <button data-value="flip">Flip</button>
+            </div>
+            <p class="set-note" id="pack-note" hidden></p>
+          </div>
+
+          <div class="set-group">
             <span class="set-title">Règles maison</span>
             <label class="switch" data-setting="stacking"><input type="checkbox" checked /><span class="track"></span>
               <span class="sw-text"><b>Accumulation</b><em>Empiler les +2 et +4 sur le joueur suivant</em></span></label>
@@ -250,18 +259,14 @@
 
   <div class="toasts" id="toasts"></div>
   <div class="confetti" id="confetti" aria-hidden="true"></div>
+  <div class="flip-flash" id="flip-flash" hidden><b></b></div>
 </section>
 
 <!-- ═══════════════ OVERLAYS ═══════════════ -->
 <div class="overlay" id="overlay-color" hidden>
   <div class="modal">
     <h3>Choisissez une couleur</h3>
-    <div class="color-picker">
-      <button data-color="red"    class="col red"    aria-label="Rouge"></button>
-      <button data-color="yellow" class="col yellow" aria-label="Jaune"></button>
-      <button data-color="green"  class="col green"  aria-label="Vert"></button>
-      <button data-color="blue"   class="col blue"   aria-label="Bleu"></button>
-    </div>
+    <div class="color-picker" id="color-picker"></div>
     <button class="btn btn-ghost btn-tiny" data-cancel>Annuler</button>
   </div>
 </div>

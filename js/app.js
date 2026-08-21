@@ -412,7 +412,7 @@ const TOASTABLE = {
 const EVENT_SFX = {
   play: 'play', draw: 'draw', penalty: 'penalty', callout: 'penalty',
   uno: 'uno', swap: 'swap', rotate: 'rotate', jump: 'jump',
-  challenge: 'penalty', round: 'shuffle', win: 'win',
+  challenge: 'penalty', round: 'shuffle', win: 'win', flip: 'rotate',
 };
 
 function applyState(s) {
@@ -430,6 +430,7 @@ function applyState(s) {
     if (EVENT_SFX[e.type]) { audio.sfx(EVENT_SFX[e.type], delay); delay += 0.06; }
   }
   if (prev && prev.turnId !== s.turnId && s.turnId === s.you && s.phase === 'playing') audio.sfx('turn');
+  if (prev && prev.side && s.side && prev.side !== s.side) ui.flipAnnounce(s.side);
   App.lastLogAt = s.log.length ? s.log[s.log.length - 1].t : App.lastLogAt;
 
   if (!prev || prev.roundNo !== s.roundNo) App.armedUno = false;
@@ -475,7 +476,7 @@ async function onCardClick(card) {
   try {
     const action = { type: 'play', cardId: card.id };
     if (isWild(card)) {
-      const color = await ui.pickColor();
+      const color = await ui.pickColor(s.side);
       if (!color) return;
       audio.sfx('color');
       action.color = color;

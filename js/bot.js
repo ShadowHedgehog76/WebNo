@@ -1,5 +1,5 @@
 // bot.js — IA des joueurs virtuels (exécutée chez l'hôte)
-import { isWild, isNumber, COLORS } from './deck.js';
+import { isWild, isNumber, colorsOf } from './deck.js';
 
 const LEVELS = {
   easy:   { smart: 0.15, uno: 0.55, callout: 0.15, jump: 0.10, challenge: 0.2, delay: [900, 1600] },
@@ -14,17 +14,23 @@ export function botDelay(level) {
   return a + Math.random() * (b - a);
 }
 
-function countColors(hand) {
-  const c = { red: 0, yellow: 0, green: 0, blue: 0 };
-  for (const card of hand) if (!isWild(card)) c[card.color]++;
+/** Compte les couleurs d'une main, faces actives uniquement. */
+function countColors(game, hand) {
+  const c = {};
+  for (const col of colorsOf(game.side)) c[col] = 0;
+  for (const card of hand) {
+    const f = game.face(card);
+    if (!isWild(f) && c[f.color] !== undefined) c[f.color]++;
+  }
   return c;
 }
 
-function bestColor(hand) {
-  const c = countColors(hand);
-  let best = COLORS[Math.floor(Math.random() * 4)];
+function bestColor(game, hand) {
+  const cols = colorsOf(game.side);
+  const c = countColors(game, hand);
+  let best = cols[Math.floor(Math.random() * cols.length)];
   let max = -1;
-  for (const col of COLORS) {
+  for (const col of cols) {
     if (c[col] > max) { max = c[col]; best = col; }
   }
   return best;
@@ -53,13 +59,27 @@ function scoreCard(game, bot, card) {
   const next = nextPlayer(game);
   const nextIsAlly = game.areAllies(bot, next);
   const nextClose = next.hand.length <= 2;
-  const colors = countColors(bot.hand);
+  const colors = countColors(game, bot.hand);
   const myCount = bot.hand.length;
+  const f = game.face(card);
   let s = 0;
 
-  switch (card.value) {
+  switch (f.value) {
     case 'draw2':
       s = nextIsAlly ? -25 : 40 + (nextClose ? 30 : 0);
+      break;
+    case 'draw5':
+      s = nextIsAlly ? -40 : 55 + (nextClose ? 35 : 0);
+      break;
+    case 'skipAll':
+      s = 45 + (myCount <= 3 ? 25 : 0);       // on rejoue : toujours bon
+      break;
+    case 'wildDraw':
+      s = nextIsAlly ? -45 : 20 + (nextClose ? 50 : 0) + (myCount <= 2 ? 30 : 0);
+      break;
+    case 'flip':
+      // retourner brouille tout le monde : intéressant si notre autre face est fournie
+      s = 26 + (myCount <= 3 ? 14 : 0);
       break;
     case 'wild4':
       // gardée en réserve, sauf si l'adversaire suivant est dangereux
@@ -94,13 +114,13 @@ function scoreCard(game, bot, card) {
       } else s = 22;
       break;
     default:
-      s = 20 + Number(card.value) * 0.4; // se débarrasser des grosses valeurs
+      s = 20 + Number(f.value) * 0.4; // se débarrasser des grosses valeurs
   }
 
   // Bonus : jouer dans sa couleur dominante préserve la flexibilité
-  if (!isWild(card)) s += colors[card.color] * 2.5;
+  if (!isWild(f)) s += (colors[f.color] || 0) * 2.5;
   // Malus : ne pas gaspiller sa dernière carte d'une couleur si on a mieux
-  if (!isWild(card) && colors[card.color] === 1 && myCount > 3) s -= 4;
+  if (!isWild(f) && colors[f.color] === 1 && myCount > 3) s -= 4;
   return s;
 }
 
@@ -143,14 +163,16 @@ export function botDecide(game, bot) {
   }
 
   const action = { type: 'play', cardId: chosen.id };
+  const cf = game.face(chosen);
 
-  if (isWild(chosen)) {
+  if (isWild(cf)) {
+    const cols = colorsOf(game.side);
     action.color = Math.random() > prof.smart
-      ? COLORS[Math.floor(Math.random() * 4)]
-      : bestColor(bot.hand.filter((c) => c.id !== chosen.id));
+      ? cols[Math.floor(Math.random() * cols.length)]
+      : bestColor(game, bot.hand.filter((c) => c.id !== chosen.id));
   }
 
-  if (game.settings.sevenZero && chosen.value === '7') {
+  if (game.settings.sevenZero && cf.value === '7') {
     action.targetId = pickSwapTarget(game, bot, prof);
   }
 
@@ -169,7 +191,7 @@ export function botJumpIn(game, bot) {
   const card = bot.hand.find((c) => game.canJumpIn(bot, c));
   if (!card) return null;
   const action = { type: 'play', cardId: card.id };
-  if (game.settings.sevenZero && card.value === '7') {
+  if (game.settings.sevenZero && game.face(card).value === '7') {
     action.targetId = pickSwapTarget(game, bot, prof);
     if (!action.targetId) return null;
   }
