@@ -1,12 +1,8 @@
 // engine.js — moteur de jeu UNO autoritaire (tourne uniquement chez l'hôte)
 import { buildDeck, decksNeeded, shuffle, isWild, isNumber, cardPoints, cardLabel, COLORS, COLOR_LABEL } from './deck.js';
 
-/** Nombre de groupes selon le mode. Le mode party est un tournoi : ses tables
- *  sont des parties individuelles ordinaires, gérées par tournament.js. */
-export const GROUP_COUNT = { solo: 2, team: 2, party: 2 };
-
 export const DEFAULT_SETTINGS = {
-  mode: 'solo',            // 'solo' | 'team' | 'party'
+  mode: 'solo',            // 'solo' | 'team'
   stacking: true,          // Accumulation des +2 / +4
   sevenZero: true,         // Règle 7-0
   jumpIn: true,            // À la volée
@@ -14,7 +10,7 @@ export const DEFAULT_SETTINGS = {
   unoRule: true,           // Obligation de dire UNO
   winCondition: 'points',  // 'points' | 'single'
   targetScore: 500,
-  tables: 4,               // mode party : nombre de tables de qualification
+  teamSize: 2,             // mode équipes : 2v2, 3v3 ou 4v4
   botLevel: 'normal',      // 'easy' | 'normal' | 'hard'
   startCards: 7,
 };
@@ -23,7 +19,7 @@ export class UnoGame {
   /** @param players [{id, name, isBot, connected}] — 2 à 4 joueurs */
   constructor(players, settings) {
     this.settings = { ...DEFAULT_SETTINGS, ...settings };
-    this.groups = GROUP_COUNT[this.settings.mode] || 2;
+    this.groups = 2;
     this.players = players.map((p, i) => ({
       id: p.id,
       name: p.name,
@@ -523,9 +519,11 @@ export class UnoGame {
     const me = this.byId(playerId);
     const top = this.topCard();
     // en mode équipes, les coéquipiers jouent à cartes ouvertes
-    const ally = me && this.settings.mode === 'team'
-      ? this.players.find((p) => p.team === me.team && p.id !== me.id)
-      : null;
+    const allies = (me && this.settings.mode === 'team')
+      ? this.players.filter((p) => p.team === me.team && p.id !== me.id)
+      : [];
+    const allyHands = {};
+    for (const a of allies) allyHands[a.id] = a.hand.map((c) => ({ ...c }));
     const calloutTargets = (this.settings.unoRule && me)
       ? this.players.filter((p) => p.mustCallUno && p.id !== playerId).map((p) => p.id)
       : [];
@@ -551,8 +549,8 @@ export class UnoGame {
         handCount: p.hand.length, mustCallUno: p.mustCallUno,
       })),
       hand: me ? me.hand.map((c) => ({ ...c })) : [],
-      allyId: ally ? ally.id : null,
-      allyHand: ally ? ally.hand.map((c) => ({ ...c })) : null,
+      allyIds: allies.map((a) => a.id),
+      allyHands: allies.length ? allyHands : null,
       legal: me ? this.legalCardsFor(me) : [],
       canDraw: !!me && this.phase === 'playing' && me.id === this.current.id && !this.drawnCardId,
       canPass: !!me && this.phase === 'playing' && me.id === this.current.id && !!this.drawnCardId,

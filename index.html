@@ -128,7 +128,11 @@
             <div class="seg" data-setting="mode">
               <button data-value="solo" class="on">Chacun pour soi</button>
               <button data-value="team">Équipes 2 v 2</button>
-              <button data-value="party">Party</button>
+            </div>
+            <div class="seg small" data-setting="teamSize" id="team-opts" hidden>
+              <button data-value="2" class="on">2 v 2</button>
+              <button data-value="3">3 v 3</button>
+              <button data-value="4">4 v 4</button>
             </div>
             <p class="set-note" id="mode-note" hidden></p>
           </div>
@@ -145,17 +149,6 @@
               <span class="sw-text"><b>Bluff sur le +4</b><em>Désactivé : le +4 ne se conteste pas</em></span></label>
             <label class="switch" data-setting="unoRule"><input type="checkbox" checked /><span class="track"></span>
               <span class="sw-text"><b>Annonce « UNO »</b><em>Oubli dénonçable : +2 cartes</em></span></label>
-          </div>
-
-          <div class="set-group" id="party-opts" hidden>
-            <span class="set-title">Tournoi</span>
-            <div class="seg small" data-setting="tables">
-              <button data-value="2">2 tables</button>
-              <button data-value="3">3 tables</button>
-              <button data-value="4" class="on">4 tables</button>
-            </div>
-            <p class="set-note" id="party-note"></p>
-            <button class="btn btn-ghost btn-tiny host-only" id="btn-shuffle-groups">Retirer au sort les tables</button>
           </div>
 
           <div class="set-group">
@@ -200,23 +193,10 @@
       <span class="chip" id="hud-mode">Solo</span>
     </div>
     <div class="hud-group">
-      <button class="btn btn-tiny party-only" id="btn-bracket" title="Arbre du tournoi (B)">Arbre</button>
       <button class="btn btn-tiny" id="btn-help" title="Raccourcis clavier (?)">Raccourcis</button>
       <button class="btn btn-tiny danger" id="btn-quit">Quitter</button>
     </div>
   </header>
-
-  <section class="tour-board" id="tour-board" hidden>
-    <header class="tour-head">
-      <b id="tour-title">Qualifications</b>
-      <span id="tour-sub"></span>
-    </header>
-    <div class="tour-grid" id="tour-grid"></div>
-  </section>
-
-  <div class="final-strip" id="final-strip" hidden></div>
-  <div class="my-table" id="my-table" hidden></div>
-  <div class="lap-banner" id="lap-banner" hidden><b id="lap-banner-title"></b><em id="lap-banner-sub"></em></div>
 
   <div class="scene">
     <div class="table3d" id="table3d">
@@ -231,9 +211,7 @@
       </div>
       <div class="rail" id="rail"></div>
 
-      <div class="seat seat-left"   id="seat-left"></div>
-      <div class="seat seat-top"    id="seat-top"></div>
-      <div class="seat seat-right"  id="seat-right"></div>
+      <div class="seats" id="seats"></div>
 
       <div class="center" id="center">
         <div class="pile" id="deck-pile" title="Pioche">
@@ -260,10 +238,6 @@
       <span class="me-team" id="me-team" hidden></span>
       <span class="me-score" id="me-score">0 pt</span>
       <span class="turn-flag" id="turn-flag" hidden>À vous de jouer</span>
-    </div>
-    <div class="ally-strip" id="ally-strip" hidden>
-      <span class="ally-label" id="ally-label"></span>
-      <div class="ally-cards" id="ally-cards"></div>
     </div>
     <div class="hand" id="hand"></div>
     <div class="actions">
@@ -325,22 +299,6 @@
   </div>
 </div>
 
-<div class="overlay" id="overlay-bracket" hidden>
-  <div class="modal bracket">
-    <h3 id="br-title">Arbre du tournoi</h3>
-    <div class="br-body" id="br-body">
-      <svg class="br-lines" id="br-lines" aria-hidden="true"></svg>
-      <div class="br-col" id="br-left"></div>
-      <div class="br-mid">
-        <div class="br-trophy">🏆</div>
-        <div class="br-champ" id="br-champ">Table finale</div>
-      </div>
-      <div class="br-col" id="br-right"></div>
-    </div>
-    <button class="btn btn-ghost btn-tiny" data-cancel>Fermer</button>
-  </div>
-</div>
-
 <div class="overlay" id="overlay-scan" hidden>
   <div class="modal">
     <h3>Scannez le QR code de l'hôte</h3>
@@ -372,7 +330,6 @@
       <li><kbd>1</kbd>…<kbd>4</kbd><span>Choisir la couleur, ou le joueur du 7</span></li>
       <li><kbd>Échap</kbd><span>Annuler le choix en cours</span></li>
       <li><kbd>M</kbd><span>Couper ou rétablir le son</span></li>
-      <li><kbd>B</kbd><span>Afficher l'arbre du tournoi (mode party)</span></li>
       <li><kbd>?</kbd><span>Ouvrir cette liste</span></li>
     </ul>
     <div class="modal-actions"><button class="btn btn-ghost" data-cancel>Fermer</button></div>

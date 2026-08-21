@@ -1,6 +1,5 @@
 // app.js — orchestration : accueil, salon, boucle hôte (moteur + IA), client
 import { UnoGame, DEFAULT_SETTINGS } from './engine.js';
-import { Tournament, tournamentSize, DEFAULT_TABLES } from './tournament.js';
 import { botDecide, botJumpIn, botCallout, botDelay, botProfile } from './bot.js';
 import { HostNet, ClientNet, normalizeCode, codeFromScan } from './net.js';
 import { isWild } from './deck.js';
@@ -14,7 +13,7 @@ const BOT_NAMES = ['Léa', 'Max', 'Zoé', 'Nino', 'Iris', 'Sacha', 'Milo', 'Nora
 
 /** Places disponibles : en party l'hôte observe, il occupe une place en plus. */
 function maxPlayers(settings) {
-  return settings.mode === 'party' ? tournamentSize(settings.tables || DEFAULT_TABLES) + 1 : 4;
+  return settings.mode === 'team' ? (settings.teamSize || 2) * 2 : 4;
 }
 const HOST_ID = 'p0';
 
@@ -39,8 +38,6 @@ class Host {
     this.seq = 1;
     this.players = [{ id: HOST_ID, name, isHost: true, isBot: false, peerId: null }];
     this.game = null;
-    this.tour = null;
-    this.tableAt = new Map();     // cadence des bots, une entrée par table
     this.unoSince = new Map();
     this.jumpTried = new Set();
     this.jumpToken = 0;
@@ -62,7 +59,7 @@ class Host {
     if (!msg || typeof msg !== 'object') return;
     if (msg.t === 'hello') {
       if (this.byPeer(peerId)) return;
-      if (this.game || this.tour) { this.net.send(peerId, { t: 'error', msg: 'La partie a déjà commencé.', fatal: true }); return; }
+      if (this.game) { this.net.send(peerId, { t: 'error', msg: 'La partie a déjà commencé.', fatal: true }); return; }
       if (this.players.length >= maxPlayers(this.settings)) { this.net.send(peerId, { t: 'error', msg: 'La room est complète.', fatal: true }); return; }
       const name = sanitizeName(msg.name, this.players.map((p) => p.name));
       this.players.push({ id: this.newId(), name, isHost: false, isBot: false, peerId });
@@ -73,10 +70,8 @@ class Host {
     }
     const player = this.byPeer(peerId);
     if (!player) return;
-    if (msg.t === 'action' && (this.game || this.tour)) {
-      const res = this.tour
-        ? this.tour.handle(player.id, msg.action)
-        : this.game.handle(player.id, msg.action);
+    if (msg.t === 'action' && this.game) {
+      const res = this.game.handle(player.id, msg.action);
       if (!res.ok) this.net.send(peerId, { t: 'error', msg: res.error });
       this.afterChange();
     }
@@ -87,13 +82,12 @@ class Host {
     const p = this.byPeer(peerId);
     if (!p) return;
     p.peerId = null;
-    if (!this.game && !this.tour) {
+    if (!this.game) {
       this.players = this.players.filter((x) => x.id !== p.id);
       ui.toast(`${p.name} a quitté le salon`, 'warn');
       this.syncLobby();
     } else {
-      const src = this.tour ? this.tour.gameOf(p.id) : this.game;
-      const gp = src ? src.byId(p.id) : null;
+      const gp = this.game ? this.game.byId(p.id) : null;
       if (gp) { gp.connected = false; gp.isBot = true; }
       p.isBot = true;
       ui.toast(`${p.name} s'est déconnecté — un bot prend la main`, 'warn');
@@ -177,12 +171,7 @@ class Host {
     };
   }
 
-  /** Les joueurs assis à la table : en party, l'hôte en est exclu. */
-  roster() {
-    return this.settings.mode === 'party'
-      ? this.players.filter((p) => !p.isHost)
-      : this.players;
-  }
+  roster() { return this.players; }
 
   syncLobby() {
     const payload = this.lobbyPayload();
@@ -194,17 +183,8 @@ class Host {
 
   start() {
     const seats = this.roster().map((p) => ({ id: p.id, name: p.name, isBot: p.isBot, connected: true }));
-    if (this.settings.mode === 'party') {
-      this.tour = new Tournament(seats, this.settings);
-      this.tour.shuffleSeats();
-      this.tour.start();
-      this.game = null;
-      this.tableAt.clear();
-    } else {
-      this.tour = null;
-      this.game = new UnoGame(seats, this.settings);
-      this.game.startRound();
-    }
+    this.game = new UnoGame(seats, this.settings);
+    this.game.startRound();
     this.unoSince.clear();
     ui.resetGameView();
     this.broadcastStart();
@@ -221,7 +201,6 @@ class Host {
   }
 
   nextRound() {
-    if (this.tour) return;         // le tournoi enchaîne tout seul
     if (!this.game) return;
     this.game.startRound();
     this.unoSince.clear();
@@ -235,7 +214,7 @@ class Host {
   }
 
   rematch() {
-    if (this.tour) {
+    if (false) {
       this.tour.shuffleSeats();
       this.tour.start();
       this.tableAt.clear();
@@ -262,7 +241,6 @@ class Host {
   }
 
   afterChange() {
-    if (this.tour) return this.afterTournamentChange();
     const g = this.game;
     if (!g) return;
     // horodatage des oublis de UNO (délai de grâce avant dénonciation par les bots)
@@ -280,76 +258,8 @@ class Host {
     applyState(g.stateFor(HOST_ID));
   }
 
-  afterTournamentChange() {
-    const T = this.tour;
-    for (const g of T.games()) {
-      for (const p of g.players) {
-        if (p.mustCallUno && !this.unoSince.has(p.id)) this.unoSince.set(p.id, Date.now());
-        if (!p.mustCallUno) this.unoSince.delete(p.id);
-      }
-    }
-    for (const p of this.players) {
-      if (p.peerId) this.net.send(p.peerId, { t: 'state', state: T.stateFor(p.id) });
-    }
-    applyState(T.stateFor(HOST_ID));
-  }
-
-  /** Boucle IA du tournoi : chaque table avance à son rythme. */
-  tickTournament() {
-    const T = this.tour;
-    if (!T || T.phase === 'done') return;
-    const now = Date.now();
-    const level = this.settings.botLevel;
-    const grace = { easy: 3200, normal: 2000, hard: 1300 }[level] ?? 2000;
-    const pace = 0.5;
-    let changed = false;
-
-    for (const g of T.games()) {
-      if (g.phase !== 'playing') continue;
-      let acted = false;
-
-      for (const b of g.players) {
-        if (!b.isBot) continue;
-        const cible = g.players.find((p) => p.mustCallUno && p.id !== b.id);
-        if (!cible) continue;
-        if (now - (this.unoSince.get(cible.id) || now) < grace) continue;
-        const act = botCallout(g, b);
-        if (act) { T.handle(b.id, act); acted = changed = true; break; }
-      }
-      if (acted) continue;
-
-      if (g.settings.jumpIn) {
-        for (const b of g.players) {
-          if (!b.isBot || b.id === g.current.id) continue;
-          const key = b.id + ':' + g.discard.length;
-          if (this.jumpTried.has(key)) continue;
-          this.jumpTried.add(key);
-          const act = botJumpIn(g, b);
-          if (act) { T.handle(b.id, act); acted = changed = true; break; }
-        }
-      }
-      if (acted) continue;
-
-      const cur = g.current;
-      const st = this.tableAt.get(g);
-      if (!st || st.id !== cur.id) {
-        this.tableAt.set(g, { id: cur.id, at: now + botDelay(level) * pace });
-        continue;
-      }
-      if (!cur.isBot || now < st.at) continue;
-      let r = T.handle(cur.id, botDecide(g, cur));
-      if (!r.ok) r = T.handle(cur.id, { type: 'draw' });
-      if (!r.ok) T.handle(cur.id, { type: 'pass' });
-      this.tableAt.set(g, { id: cur.id, at: now + botDelay(level) * pace });
-      changed = true;
-    }
-    if (this.jumpTried.size > 400) this.jumpTried.clear();
-    if (changed) this.afterTournamentChange();
-  }
-
   /** Boucle IA. */
   tick() {
-    if (this.tour) return this.tickTournament();
     const g = this.game;
     if (!g || g.phase !== 'playing') return;
     const now = Date.now();
@@ -403,8 +313,7 @@ class Host {
   }
 
   localAction(action) {
-    if (this.tour) return;                                 // hôte spectateur du tournoi
-    if (!this.game || !this.game.byId(HOST_ID)) return;   // hôte spectateur
+    if (!this.game) return;
     const res = this.game.handle(HOST_ID, action);
     if (!res.ok) { ui.toast(res.error, 'bad'); audio.sfx('error'); }
     this.afterChange();
@@ -522,19 +431,6 @@ function applyState(s) {
   }
   if (prev && prev.turnId !== s.turnId && s.turnId === s.you && s.phase === 'playing') audio.sfx('turn');
   App.lastLogAt = s.log.length ? s.log[s.log.length - 1].t : App.lastLogAt;
-
-  // l'arbre s'ouvre tout seul quand le tournoi change d'étape
-  const ph = s.tournament ? s.tournament.phase : null;
-  if (ph && ph !== App.tourPhase) {
-    const premier = App.tourPhase === undefined;
-    App.tourPhase = ph;
-    if (!premier || ph === 'qualif') {
-      ui.showBracket(s);
-      clearTimeout(App.brTimer);
-      App.brTimer = setTimeout(() => ui.hideBracket(), ph === 'done' ? 7000 : 4500);
-    }
-  }
-  if (!s.tournament) App.tourPhase = undefined;
 
   if (!prev || prev.roundNo !== s.roundNo) App.armedUno = false;
   if (s.hand.length !== 2) App.armedUno = false;
@@ -675,7 +571,6 @@ function wireLobby() {
   };
   $('btn-add-bot').onclick = () => App.host && App.host.addBot();
   $('btn-fill-bots').onclick = () => App.host && App.host.fillBots();
-  $('btn-shuffle-groups').onclick = () => App.host && App.host.shuffleGroups();
   $('btn-start').onclick = () => App.host && App.host.start();
   $('btn-lobby-leave').onclick = () => leave();
 
@@ -685,7 +580,7 @@ function wireLobby() {
       if (!b || !App.host) return;
       const key = seg.dataset.setting;
       let val = b.dataset.value;
-      if (key === 'targetScore' || key === 'tables') val = Number(val);
+      if (key === 'targetScore' || key === 'teamSize') val = Number(val);
       App.host.setSetting(key, val);
     });
   }
@@ -772,8 +667,6 @@ function wireGame() {
   $('btn-rematch').onclick = () => App.host && App.host.rematch();
   $('btn-home').onclick = () => leave();
 
-  $('btn-bracket').onclick = () => { ui.bracketVisible() ? ui.hideBracket() : ui.showBracket(App.view); };
-  $('overlay-bracket').querySelector('[data-cancel]').onclick = () => ui.hideBracket();
   $('btn-help').onclick = () => { $('overlay-help').hidden = !$('overlay-help').hidden; };
   $('overlay-help').querySelector('[data-cancel]').onclick = () => { $('overlay-help').hidden = true; };
   wireKeyboard();
@@ -882,7 +775,7 @@ function wireKeyboard() {
       e.preventDefault(); return;
     }
     if (k === 'Escape') {
-      for (const id of ['overlay-help', 'overlay-bracket', 'overlay-scan', 'overlay-qr', 'overlay-color', 'overlay-target']) {
+      for (const id of ['overlay-help', 'overlay-scan', 'overlay-qr', 'overlay-color', 'overlay-target']) {
         const ov = $(id);
         if (!ov.hidden) { const c = ov.querySelector('[data-cancel]'); if (c) c.click(); e.preventDefault(); return; }
       }
@@ -915,11 +808,6 @@ function wireKeyboard() {
       case 'd': case 'D': press('btn-draw'); break;
       case 'p': case 'P': press('btn-pass'); break;
       case 'u': case 'U': press('btn-uno'); break;
-      case 'b': case 'B':
-        if (App.view && App.view.tournament) {
-          ui.bracketVisible() ? ui.hideBracket() : ui.showBracket(App.view);
-        }
-        break;
       case 'c': case 'C': {
         const t = App.view.calloutTargets;
         if (t && t.length) send({ type: 'callout', targetId: t[0] });
