@@ -1,6 +1,6 @@
 // ui.js — rendu du DOM : table 3D, mains, salon, overlays
-import { COLOR_LABEL, isWild, colorsOf, cardCatalog, PACKS, packById } from './deck.js?v=202608211721';
-import { qrSvg } from './qr.js?v=202608211721';
+import { COLOR_LABEL, isWild, colorsOf, cardCatalog, PACKS, packById, MODES, modeById, modeId } from './deck.js?v=202608211737';
+import { qrSvg } from './qr.js?v=202608211737';
 
 /** Lien d'invitation d'une room. */
 export function joinUrl(code) {
@@ -228,16 +228,9 @@ export function renderLobby({ code, players, settings, isHost, maxPlayers = 4 },
   for (const sw of document.querySelectorAll('.switch[data-setting]')) {
     sw.querySelector('input').checked = !!settings[sw.dataset.setting];
   }
-  const note = $('mode-note');
-  note.hidden = !team;
-  if (team) {
-    const n = settings.teamSize || 2;
-    note.textContent = `${n} contre ${n}. Les joueurs alternent autour de la table : `
-      + 'A, B, A, B… et chaque équipe voit le jeu de ses coéquipiers.';
-  }
-  $('team-opts').hidden = !team;
   document.body.dataset.pack = settings.pack || 'classic';
   renderPackButton(settings);
+  renderModeButton(settings);
   renderCatalog(settings);
   $('settings').classList.toggle('locked', !isHost);
   document.querySelector('.seg[data-setting="targetScore"]').style.opacity = settings.winCondition === 'points' ? '1' : '.35';
@@ -268,6 +261,64 @@ function packFan(pack) {
   });
   return fan;
 }
+
+/** Aperçu d'un mode : les places autour de la table, colorées par camp. */
+function modeFan(mode) {
+  const vis = document.createElement('span');
+  vis.className = 'md-vis';
+  const table = document.createElement('span');
+  table.className = 'md-table';
+  vis.appendChild(table);
+  for (let i = 0; i < mode.seats; i++) {
+    const a = 90 + (i * 360) / mode.seats;
+    const rad = (a * Math.PI) / 180;
+    const seat = document.createElement('i');
+    seat.className = 'md-seat' + (mode.teams ? (i % 2 === 0 ? ' a' : ' b') : '');
+    seat.style.left = (50 + 38 * Math.cos(rad)).toFixed(1) + '%';
+    seat.style.top = (50 + 32 * Math.sin(rad)).toFixed(1) + '%';
+    vis.appendChild(seat);
+  }
+  return vis;
+}
+
+/** Le bouton du salon : nom du mode et aperçu de la table. */
+function renderModeButton(settings) {
+  const mode = modeById(modeId(settings));
+  const btn = $('btn-mode');
+  if (!btn || btn.dataset.mode === mode.id) return;
+  btn.dataset.mode = mode.id;
+  $('mode-name').textContent = mode.name;
+  $('mode-note').textContent = mode.tagline;
+  const mini = $('mode-mini');
+  mini.innerHTML = '';
+  mini.appendChild(modeFan(mode));
+}
+
+/** La galerie des modes. */
+export function showModes(settings, onPick) {
+  const grid = $('mode-grid');
+  grid.innerHTML = '';
+  const courant = modeId(settings);
+  for (const mode of MODES) {
+    const tuile = document.createElement('button');
+    tuile.className = 'pack-tile mode-tile';
+    tuile.classList.toggle('on', mode.id === courant);
+    tuile.dataset.mode = mode.id;
+    const vis = document.createElement('span');
+    vis.className = 'pt-vis';
+    vis.appendChild(modeFan(mode));
+    const txt = document.createElement('span');
+    txt.className = 'pt-txt';
+    txt.innerHTML = '<b></b><em></em>';
+    txt.querySelector('b').textContent = mode.name;
+    txt.querySelector('em').textContent = mode.tagline;
+    tuile.append(vis, txt);
+    tuile.onclick = () => { onPick(mode); hideModes(); };
+    grid.appendChild(tuile);
+  }
+  $('overlay-modes').hidden = false;
+}
+export function hideModes() { $('overlay-modes').hidden = true; }
 
 /** Le bouton du salon : nom du paquet et aperçu de quatre cartes. */
 function renderPackButton(settings) {
@@ -321,27 +372,25 @@ function renderCatalog(settings) {
   list.innerHTML = '';
   let cote = null;
   for (const e of entries) {
-    if (e.side !== cote) {
+    if (settings.pack === 'flip' && e.side !== cote) {
       cote = e.side;
-      if (settings.pack === 'flip') {
-        const sep = document.createElement('li');
-        sep.className = 'cl-side ' + cote;
-        sep.textContent = cote === 'dark' ? 'Côté sombre' : 'Côté clair';
-        list.appendChild(sep);
-      }
+      const sep = document.createElement('div');
+      sep.className = 'rl-side ' + cote;
+      sep.textContent = cote === 'dark' ? 'Côté sombre' : 'Côté clair';
+      list.appendChild(sep);
     }
-    const li = document.createElement('li');
-    li.className = 'cl-item';
+    const item = document.createElement('article');
+    item.className = 'rl-item';
     const vign = document.createElement('div');
-    vign.className = 'cl-card';
+    vign.className = 'rl-card';
     vign.appendChild(cardEl({ id: 'cat-' + e.name, color: e.color, value: e.value }));
     const txt = document.createElement('div');
-    txt.className = 'cl-text';
+    txt.className = 'rl-text';
     txt.innerHTML = '<b></b><em></em>';
     txt.querySelector('b').textContent = e.name;
     txt.querySelector('em').textContent = e.desc;
-    li.append(vign, txt);
-    list.appendChild(li);
+    item.append(vign, txt);
+    list.appendChild(item);
   }
 }
 

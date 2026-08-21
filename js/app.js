@@ -1,10 +1,10 @@
 // app.js — orchestration : accueil, salon, boucle hôte (moteur + IA), client
-import { UnoGame, DEFAULT_SETTINGS } from './engine.js?v=202608211721';
-import { botDecide, botJumpIn, botCallout, botDelay, botProfile } from './bot.js?v=202608211721';
-import { HostNet, ClientNet, normalizeCode, codeFromScan } from './net.js?v=202608211721';
-import { isWild } from './deck.js?v=202608211721';
-import * as ui from './ui.js?v=202608211721';
-import * as audio from './audio.js?v=202608211721';
+import { UnoGame, DEFAULT_SETTINGS } from './engine.js?v=202608211737';
+import { botDecide, botJumpIn, botCallout, botDelay, botProfile } from './bot.js?v=202608211737';
+import { HostNet, ClientNet, normalizeCode, codeFromScan } from './net.js?v=202608211737';
+import { isWild } from './deck.js?v=202608211737';
+import * as ui from './ui.js?v=202608211737';
+import * as audio from './audio.js?v=202608211737';
 
 const $ = (id) => document.getElementById(id);
 const BOT_NAMES = ['Léa', 'Max', 'Zoé', 'Nino', 'Iris', 'Sacha', 'Milo', 'Nora', 'Tao', 'Lila',
@@ -574,6 +574,18 @@ function wireLobby() {
   };
   $('btn-add-bot').onclick = () => App.host && App.host.addBot();
   $('btn-fill-bots').onclick = () => App.host && App.host.fillBots();
+  $('btn-mode').onclick = () => {
+    if (!App.host) { ui.toast('Seul l\'hôte règle la partie.'); return; }
+    ui.showModes(App.host.settings, (m) => {
+      App.host.settings.teamSize = m.teamSize || 2;
+      App.host.setSetting('mode', m.mode || 'solo');
+    });
+  };
+  $('overlay-modes').querySelector('[data-cancel]').onclick = () => ui.hideModes();
+
+  $('btn-rules').onclick = () => { $('overlay-rules').hidden = false; };
+  $('overlay-rules').querySelector('[data-cancel]').onclick = () => { $('overlay-rules').hidden = true; };
+
   $('btn-pack').onclick = () => {
     const s = App.host ? App.host.settings : (App.lobby ? App.lobby.settings : {});
     if (!App.host) { ui.toast('Seul l\'hôte choisit le paquet.'); return; }
@@ -784,7 +796,7 @@ function wireKeyboard() {
       e.preventDefault(); return;
     }
     if (k === 'Escape') {
-      for (const id of ['overlay-help', 'overlay-packs', 'overlay-scan', 'overlay-qr', 'overlay-color', 'overlay-target']) {
+      for (const id of ['overlay-help', 'overlay-packs', 'overlay-modes', 'overlay-rules', 'overlay-scan', 'overlay-qr', 'overlay-color', 'overlay-target']) {
         const ov = $(id);
         if (!ov.hidden) { const c = ov.querySelector('[data-cancel]'); if (c) c.click(); e.preventDefault(); return; }
       }

@@ -208,6 +208,35 @@ export const PACKS = [
 
 export const packById = (id) => PACKS.find((p) => p.id === id) || PACKS[0];
 
+/** Les modes de jeu, avec l'aperçu de leur disposition à table. */
+export const MODES = [
+  {
+    id: 'solo', name: 'Chacun pour soi',
+    tagline: 'Jusqu\'à quatre joueurs, et le premier à vider sa main l\'emporte.',
+    seats: 4, teams: false,
+  },
+  {
+    id: 'team2', mode: 'team', teamSize: 2, name: 'Équipes 2 v 2',
+    tagline: 'Quatre joueurs, deux camps. Vous voyez le jeu de votre coéquipier.',
+    seats: 4, teams: true,
+  },
+  {
+    id: 'team3', mode: 'team', teamSize: 3, name: 'Équipes 3 v 3',
+    tagline: 'Six joueurs qui alternent autour de la table : A, B, A, B…',
+    seats: 6, teams: true,
+  },
+  {
+    id: 'team4', mode: 'team', teamSize: 4, name: 'Équipes 4 v 4',
+    tagline: 'Huit joueurs, la table au complet. Chaque camp joue à cartes ouvertes.',
+    seats: 8, teams: true,
+  },
+];
+
+export function modeId(settings = {}) {
+  return settings.mode === 'team' ? 'team' + (settings.teamSize || 2) : 'solo';
+}
+export const modeById = (id) => MODES.find((m) => m.id === id) || MODES[0];
+
 /* ─────────────── catalogue des cartes, pour le salon ───────────────
    Les descriptions suivent les règles réellement activées : inutile
    d'annoncer une accumulation ou un échange de mains si l'hôte les a

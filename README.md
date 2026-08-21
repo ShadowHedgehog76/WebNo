@@ -6,9 +6,11 @@ les navigateurs se parlent directement en WebRTC (via [PeerJS](https://peerjs.co
 
 ## Ce que ça fait
 
-- **Catalogue des cartes** : le salon affiche à droite la liste des cartes du paquet choisi, avec
-  leur nom, leur dessin et ce qu'elles font — et les descriptions suivent les règles réellement
-  activées, pour que tout le monde parte avec les mêmes informations.
+- **Bouton « Voir les règles »** : il ouvre une grille où chaque carte du paquet choisi occupe sa
+  propre case, avec son dessin, son nom et son effet — et les descriptions suivent les règles
+  réellement activées, pour que tout le monde parte avec les mêmes informations.
+- **Mode de jeu et paquet** se choisissent chacun par un bouton illustré, qui ouvre une galerie de
+  vignettes : la table et ses places pour les modes, quatre cartes sur leur feutre pour les paquets.
 - **Salon avec code et QR code** : l'hôte crée la room, obtient un code à 5 caractères, un lien
   `…/#CODE` et un **QR code affiché à l'écran** (agrandissable d'un clic pour être scanné de loin —
   pratique en mode party où douze personnes doivent rejoindre). Les joueurs le scannent avec
@@ -41,9 +43,6 @@ les navigateurs se parlent directement en WebRTC (via [PeerJS](https://peerjs.co
   Réglages Musique / Effets dans la console en haut à droite, mémorisés d'une session à l'autre.
 
 ## Les paquets
-
-Le paquet se choisit par un bouton qui ouvre une galerie de vignettes : chacune montre quatre
-cartes du paquet sur son propre feutre, avec son nom et ce qui le distingue.
 
 Chacun a son propre habillage, pour se reconnaître sans lire une seule valeur : le classique et son
 ovale incliné, **Flip** et son coin corné qui laisse voir la couleur du verso, **No Mercy** en
