@@ -42,6 +42,9 @@ les navigateurs se parlent directement en WebRTC (via [PeerJS](https://peerjs.co
 
 ## Les paquets
 
+Le paquet se choisit par un bouton qui ouvre une galerie de vignettes : chacune montre quatre
+cartes du paquet sur son propre feutre, avec son nom et ce qui le distingue.
+
 Chacun a son propre habillage, pour se reconnaître sans lire une seule valeur : le classique et son
 ovale incliné, **Flip** et son coin corné qui laisse voir la couleur du verso, **No Mercy** en
 bordure noire rayée avec un cartouche anguleux, **Extreme** et son cadre métallique. Les dos de

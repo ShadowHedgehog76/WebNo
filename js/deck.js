@@ -170,6 +170,44 @@ export function buildNoMercyDeck(copies = 1) {
   return deck;
 }
 
+/** Les paquets proposés, avec l'aperçu de quatre cartes typiques. */
+export const PACKS = [
+  {
+    id: 'classic', name: 'Classique',
+    tagline: 'Le UNO de toujours, 108 cartes.',
+    preview: [
+      { color: 'red', value: '7' }, { color: 'yellow', value: 'skip' },
+      { color: 'green', value: 'draw2' }, { color: 'wild', value: 'wild' },
+    ],
+  },
+  {
+    id: 'flip', name: 'Flip',
+    tagline: 'Deux faces par carton, un côté clair et un côté sombre.',
+    preview: [
+      { color: 'blue', value: 'flip' }, { color: 'red', value: '5' },
+      { color: 'purple', value: 'draw5' }, { color: 'teal', value: 'skipAll' },
+    ],
+  },
+  {
+    id: 'nomercy', name: 'No Mercy',
+    tagline: 'Pioches cumulables sans limite, et élimination à 25 cartes.',
+    preview: [
+      { color: 'red', value: 'draw10' }, { color: 'blue', value: 'discardAll' },
+      { color: 'green', value: 'reverseDraw4' }, { color: 'wild', value: 'wildDraw' },
+    ],
+  },
+  {
+    id: 'extreme', name: 'Extreme',
+    tagline: 'Plus de pioche : un lanceur crache les cartes au hasard.',
+    preview: [
+      { color: 'yellow', value: '3' }, { color: 'red', value: 'draw2' },
+      { color: 'wild', value: 'wild4' }, { color: 'blue', value: 'reverse' },
+    ],
+  },
+];
+
+export const packById = (id) => PACKS.find((p) => p.id === id) || PACKS[0];
+
 /* ─────────────── catalogue des cartes, pour le salon ───────────────
    Les descriptions suivent les règles réellement activées : inutile
    d'annoncer une accumulation ou un échange de mains si l'hôte les a

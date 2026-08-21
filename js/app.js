@@ -1,10 +1,10 @@
 // app.js — orchestration : accueil, salon, boucle hôte (moteur + IA), client
-import { UnoGame, DEFAULT_SETTINGS } from './engine.js?v=202608211216';
-import { botDecide, botJumpIn, botCallout, botDelay, botProfile } from './bot.js?v=202608211216';
-import { HostNet, ClientNet, normalizeCode, codeFromScan } from './net.js?v=202608211216';
-import { isWild } from './deck.js?v=202608211216';
-import * as ui from './ui.js?v=202608211216';
-import * as audio from './audio.js?v=202608211216';
+import { UnoGame, DEFAULT_SETTINGS } from './engine.js?v=202608211721';
+import { botDecide, botJumpIn, botCallout, botDelay, botProfile } from './bot.js?v=202608211721';
+import { HostNet, ClientNet, normalizeCode, codeFromScan } from './net.js?v=202608211721';
+import { isWild } from './deck.js?v=202608211721';
+import * as ui from './ui.js?v=202608211721';
+import * as audio from './audio.js?v=202608211721';
 
 const $ = (id) => document.getElementById(id);
 const BOT_NAMES = ['Léa', 'Max', 'Zoé', 'Nino', 'Iris', 'Sacha', 'Milo', 'Nora', 'Tao', 'Lila',
@@ -348,6 +348,7 @@ class Guest {
     switch (msg.t) {
       case 'lobby':
         App.myId = msg.you;
+        App.lobby = msg;
         renderLobbyLocal(msg, false);
         ui.showScreen('lobby');
         ui.setWaiting(null);
@@ -573,6 +574,12 @@ function wireLobby() {
   };
   $('btn-add-bot').onclick = () => App.host && App.host.addBot();
   $('btn-fill-bots').onclick = () => App.host && App.host.fillBots();
+  $('btn-pack').onclick = () => {
+    const s = App.host ? App.host.settings : (App.lobby ? App.lobby.settings : {});
+    if (!App.host) { ui.toast('Seul l\'hôte choisit le paquet.'); return; }
+    ui.showPacks(s, (id) => App.host.setSetting('pack', id));
+  };
+  $('overlay-packs').querySelector('[data-cancel]').onclick = () => ui.hidePacks();
   $('btn-start').onclick = () => App.host && App.host.start();
   $('btn-lobby-leave').onclick = () => leave();
 
@@ -777,7 +784,7 @@ function wireKeyboard() {
       e.preventDefault(); return;
     }
     if (k === 'Escape') {
-      for (const id of ['overlay-help', 'overlay-scan', 'overlay-qr', 'overlay-color', 'overlay-target']) {
+      for (const id of ['overlay-help', 'overlay-packs', 'overlay-scan', 'overlay-qr', 'overlay-color', 'overlay-target']) {
         const ov = $(id);
         if (!ov.hidden) { const c = ov.querySelector('[data-cancel]'); if (c) c.click(); e.preventDefault(); return; }
       }

@@ -2,6 +2,10 @@
 """Estampille les fichiers d'une version, pour que le navigateur ne serve
 jamais un mélange d'ancien et de neuf après une mise en ligne.
 
+Note : une fois estampillés, les imports s'écrivent « ./deck.js?v=... ».
+Toute retouche automatique d'une ligne d'import doit donc accepter les deux
+formes, avec et sans version.
+
     python3 tools/stamp.py            → version = date + heure
     python3 tools/stamp.py 42         → version imposée
 

@@ -1,6 +1,6 @@
 // ui.js — rendu du DOM : table 3D, mains, salon, overlays
-import { COLOR_LABEL, isWild, colorsOf, cardCatalog } from './deck.js?v=202608211216';
-import { qrSvg } from './qr.js?v=202608211216';
+import { COLOR_LABEL, isWild, colorsOf, cardCatalog, PACKS, packById } from './deck.js?v=202608211721';
+import { qrSvg } from './qr.js?v=202608211721';
 
 /** Lien d'invitation d'une room. */
 export function joinUrl(code) {
@@ -70,6 +70,17 @@ export function setRole(isHost) {
 }
 
 /* ───────────────────────────── cartes ───────────────────────────── */
+/**
+ * Ce qui est réellement dessiné sur une carte. L'identifiant ne suffit pas :
+ * en pack Flip, un même carton change de face au retournement, et l'élément
+ * doit alors être redessiné.
+ */
+export function faceKey(card) {
+  if (!card) return 'dos';
+  return [card.color, card.value, card.chosen || '',
+    card.back ? card.back.color + card.back.value : ''].join(':');
+}
+
 export function cardEl(card, opts = {}) {
   const d = document.createElement('div');
   if (opts.faceDown || !card) { d.className = 'card back'; return d; }
@@ -226,14 +237,8 @@ export function renderLobby({ code, players, settings, isHost, maxPlayers = 4 },
   }
   $('team-opts').hidden = !team;
   document.body.dataset.pack = settings.pack || 'classic';
+  renderPackButton(settings);
   renderCatalog(settings);
-  const pk = $('pack-note');
-  pk.hidden = settings.pack !== 'flip';
-  if (settings.pack === 'flip') {
-    pk.textContent = 'Chaque carton a deux faces sans rapport. Une carte Retournement fait '
-      + 'basculer toute la partie du côté clair au côté sombre — et vous voyez déjà l\'autre '
-      + 'face des cartes que les autres tiennent.';
-  }
   $('settings').classList.toggle('locked', !isHost);
   document.querySelector('.seg[data-setting="targetScore"]').style.opacity = settings.winCondition === 'points' ? '1' : '.35';
 
@@ -251,6 +256,57 @@ export function renderLobby({ code, players, settings, isHost, maxPlayers = 4 },
     $('lobby-status').textContent = why;
   }
 }
+
+/** Quatre cartes en éventail, l'aperçu d'un paquet. */
+function packFan(pack) {
+  const fan = document.createElement('span');
+  fan.className = 'pk-fan pack-' + pack.id;
+  pack.preview.forEach((c, i) => {
+    const el = cardEl({ id: `pv-${pack.id}-${i}`, color: c.color, value: c.value });
+    el.style.setProperty('--i', String(i - (pack.preview.length - 1) / 2));
+    fan.appendChild(el);
+  });
+  return fan;
+}
+
+/** Le bouton du salon : nom du paquet et aperçu de quatre cartes. */
+function renderPackButton(settings) {
+  const pack = packById(settings.pack || 'classic');
+  const btn = $('btn-pack');
+  if (!btn || btn.dataset.pack === pack.id) return;
+  btn.dataset.pack = pack.id;
+  $('pack-name').textContent = pack.name;
+  $('pack-note').textContent = pack.tagline;
+  const mini = $('pack-mini');
+  mini.innerHTML = '';
+  mini.appendChild(packFan(pack));
+}
+
+/** La galerie des paquets, en grille de vignettes. */
+export function showPacks(settings, onPick) {
+  const grid = $('pack-grid');
+  grid.innerHTML = '';
+  for (const pack of PACKS) {
+    const card = document.createElement('button');
+    card.className = 'pack-tile pack-' + pack.id;
+    card.classList.toggle('on', pack.id === (settings.pack || 'classic'));
+    card.dataset.pack = pack.id;
+    const vis = document.createElement('span');
+    vis.className = 'pt-vis';
+    vis.appendChild(packFan(pack));
+    const txt = document.createElement('span');
+    txt.className = 'pt-txt';
+    txt.innerHTML = '<b></b><em></em>';
+    txt.querySelector('b').textContent = pack.name;
+    txt.querySelector('em').textContent = pack.tagline;
+    card.append(vis, txt);
+    card.onclick = () => { onPick(pack.id); hidePacks(); };
+    grid.appendChild(card);
+  }
+  $('overlay-packs').hidden = false;
+}
+
+export function hidePacks() { $('overlay-packs').hidden = true; }
 
 /** Liste des cartes du paquet choisi, avec ce que chacune fait vraiment. */
 function renderCatalog(settings) {
@@ -332,7 +388,7 @@ function seatPosition(rel, total) {
 /** Éventail tenu par un joueur : des dos, ou les faces pour un coéquipier. */
 function renderFan(host, count, cards, verso = false) {
   const shown = cards ? cards.length : Math.min(count, 12);
-  const key = (cards ? cards.map((c) => (c.id || c.color + c.value)).join(',') : 'dos') + ':' + shown + (verso ? ':v' : '');
+  const key = (cards ? cards.map(faceKey).join(',') : 'dos') + ':' + shown + (verso ? ':v' : '');
   if (host.dataset.key !== key) {
     host.dataset.key = key;
     host.innerHTML = '';
@@ -452,13 +508,17 @@ function renderHand(state, handlers) {
     if (!ids.has(id)) { el.remove(); handEls.delete(id); }
   }
 
-  // 1) on crée d'abord les cartes manquantes, sans les placer
+  // 1) on crée les cartes manquantes, et on redessine celles qui ont changé
+  //    de face — c'est le cas de toute la main après un retournement.
   state.hand.forEach((card) => {
-    if (handEls.has(card.id)) return;
+    const sig = faceKey(card);
+    const ancien = handEls.get(card.id);
+    if (ancien && ancien.dataset.face === sig) return;
     const el = cardEl(card);
-    if (lastHandIds.size) el.classList.add('dealt');
+    el.dataset.face = sig;
+    if (!ancien && lastHandIds.size) el.classList.add('dealt');
     el.addEventListener('click', () => handlers.onCardClick && handlers.onCardClick(card, el));
-    host.appendChild(el);
+    if (ancien) { ancien.replaceWith(el); } else { host.appendChild(el); }
     handEls.set(card.id, el);
   });
 
@@ -512,14 +572,15 @@ function renderDiscard(state) {
   const pile = $('discard-pile');
   pile.className = 'pile discard glow-' + state.currentColor;
   if (!state.top) return;
-  if (state.top.id !== lastTopId) {
+  const topSig = state.top.id + '|' + faceKey(state.top);
+  if (topSig !== lastTopId) {
     const el = cardEl(state.top);
     el.classList.add('newest');
     el.style.setProperty('--rot', (Math.random() * 26 - 13).toFixed(1) + 'deg');
     el.style.transform = `rotate(${el.style.getPropertyValue('--rot')})`;
     pile.appendChild(el);
     while (pile.childElementCount > 5) pile.firstElementChild.remove();
-    lastTopId = state.top.id;
+    lastTopId = topSig;
   } else {
     const last = pile.lastElementChild;
     if (last && state.top.chosen) {
