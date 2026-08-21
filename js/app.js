@@ -1,10 +1,10 @@
 // app.js — orchestration : accueil, salon, boucle hôte (moteur + IA), client
-import { UnoGame, DEFAULT_SETTINGS } from './engine.js?v=202608211737';
-import { botDecide, botJumpIn, botCallout, botDelay, botProfile } from './bot.js?v=202608211737';
-import { HostNet, ClientNet, normalizeCode, codeFromScan } from './net.js?v=202608211737';
-import { isWild } from './deck.js?v=202608211737';
-import * as ui from './ui.js?v=202608211737';
-import * as audio from './audio.js?v=202608211737';
+import { UnoGame, DEFAULT_SETTINGS } from './engine.js?v=202608220129';
+import { botDecide, botJumpIn, botCallout, botDelay, botProfile } from './bot.js?v=202608220129';
+import { HostNet, ClientNet, normalizeCode, codeFromScan } from './net.js?v=202608220129';
+import { isWild } from './deck.js?v=202608220129';
+import * as ui from './ui.js?v=202608220129';
+import * as audio from './audio.js?v=202608220129';
 
 const $ = (id) => document.getElementById(id);
 const BOT_NAMES = ['Léa', 'Max', 'Zoé', 'Nino', 'Iris', 'Sacha', 'Milo', 'Nora', 'Tao', 'Lila',
@@ -59,7 +59,7 @@ class Host {
     if (!msg || typeof msg !== 'object') return;
     if (msg.t === 'hello') {
       if (this.byPeer(peerId)) return;
-      if (this.game) { this.net.send(peerId, { t: 'error', msg: 'La partie a déjà commencé.', fatal: true }); return; }
+      if (this.game) { this.rejoin(peerId, msg.name); return; }
       if (this.players.length >= maxPlayers(this.settings)) { this.net.send(peerId, { t: 'error', msg: 'La room est complète.', fatal: true }); return; }
       const name = sanitizeName(msg.name, this.players.map((p) => p.name));
       this.players.push({ id: this.newId(), name, isHost: false, isBot: false, peerId });
@@ -76,6 +76,48 @@ class Host {
       this.afterChange();
     }
     if (msg.t === 'nextRound') { /* réservé à l'hôte */ }
+  }
+
+  /**
+   * Reprise d'une place en cours de partie. On rend d'abord au revenant le
+   * siège qu'il vient de quitter, reconnu à son pseudo ; sinon on lui confie
+   * un bot au hasard. Si toutes les places sont tenues, la partie est fermée.
+   */
+  rejoin(peerId, rawName) {
+    const voulu = String(rawName || '').trim().slice(0, 14);
+    const libres = this.players.filter((p) => !p.isHost && !p.peerId);
+    if (!libres.length) {
+      this.net.send(peerId, {
+        t: 'error', fatal: true,
+        msg: 'La partie a commencé et toutes les places sont tenues par des joueurs.',
+      });
+      return;
+    }
+    const sien = libres.find((p) => p.name.toLowerCase() === voulu.toLowerCase());
+    const place = sien || libres[Math.floor(Math.random() * libres.length)];
+    const ancien = place.name;
+
+    place.peerId = peerId;
+    place.isBot = false;
+    if (!sien && voulu) {
+      place.name = sanitizeName(voulu, this.players.filter((p) => p !== place).map((p) => p.name));
+    }
+
+    const gp = this.game.byId(place.id);
+    if (gp) {
+      gp.connected = true;
+      gp.isBot = false;
+      gp.name = place.name;
+      this.game.say('join', sien
+        ? `${place.name} est de retour et reprend sa main.`
+        : `${place.name} prend la place de ${ancien}.`, { playerId: place.id });
+      this.game.version++;
+    }
+
+    audio.sfx('join');
+    ui.toast(sien ? `${place.name} est de retour` : `${place.name} remplace ${ancien}`);
+    this.net.send(peerId, { t: 'started' });
+    this.afterChange();
   }
 
   onClose(peerId) {
@@ -356,6 +398,8 @@ class Guest {
       case 'started':
         audio.playMusic('game');
         audio.sfx('shuffle');
+        ui.setWaiting(null);
+        ui.setRole(false);
         ui.resetGameView();
         ui.showScreen('game');
         $('hud-code').textContent = 'Room ' + this.code;
@@ -841,6 +885,11 @@ function wireKeyboard() {
 function leave() {
   if (!confirmLeave()) return;
   App.leaving = true;                    // désarme le garde-fou de fermeture
+  // on retient la room quittée : y revenir ne demande que de retaper le code
+  try {
+    const code = App.host ? App.host.code : (App.client ? App.client.code : null);
+    if (code) localStorage.setItem('webno.last', code);
+  } catch (_) {}
   try { if (App.host) App.host.destroy(); } catch (_) {}
   try { if (App.client) App.client.destroy(); } catch (_) {}
   App.role = null;
@@ -875,6 +924,12 @@ function boot() {
   window.__ui = ui;
 
   // rejoindre directement via #CODE
+  // dernière room quittée : le code est proposé, il suffit de valider
+  try {
+    const dernier = normalizeCode(localStorage.getItem('webno.last') || '');
+    if (dernier.length === 5 && !location.hash) $('input-code').value = dernier;
+  } catch (_) {}
+
   // arrivée par un lien d'invitation ou un QR scanné avec l'appareil photo
   const hash = normalizeCode(location.hash.replace('#', ''));
   if (hash.length === 5) {

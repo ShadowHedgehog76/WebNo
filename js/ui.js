@@ -1,6 +1,6 @@
 // ui.js — rendu du DOM : table 3D, mains, salon, overlays
-import { COLOR_LABEL, isWild, colorsOf, cardCatalog, PACKS, packById, MODES, modeById, modeId } from './deck.js?v=202608211737';
-import { qrSvg } from './qr.js?v=202608211737';
+import { COLOR_LABEL, isWild, colorsOf, cardCatalog, PACKS, packById, MODES, modeById, modeId } from './deck.js?v=202608220129';
+import { qrSvg } from './qr.js?v=202608220129';
 
 /** Lien d'invitation d'une room. */
 export function joinUrl(code) {

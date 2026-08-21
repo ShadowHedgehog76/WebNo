@@ -20,6 +20,9 @@ les navigateurs se parlent directement en WebRTC (via [PeerJS](https://peerjs.co
   automatiquement différenciés.
 - **Bots** : l'hôte complète les places libres d'un clic. Trois niveaux (facile / normal / difficile).
   Un joueur qui se déconnecte est immédiatement repris par un bot, la partie continue.
+- **Reconnexion** : il suffit de retaper le code pour revenir. On retrouve son siège et sa main
+  telle qu'on l'avait laissée, le pseudo servant à reconnaître sa place ; sans correspondance, on
+  prend celle d'un bot au hasard. Le code de la dernière room est proposé d'office au retour.
 - **Deux modes** : *chacun pour soi* jusqu'à 4 joueurs, ou *équipes* en **2 v 2, 3 v 3 ou 4 v 4**
   (jusqu'à 8 joueurs). Les équipes alternent autour de la table — A, B, A, B… — et chaque joueur
   voit le jeu de tous ses coéquipiers (les places 1-3 contre les places 2-4,
