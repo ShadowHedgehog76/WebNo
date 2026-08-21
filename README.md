@@ -59,6 +59,20 @@ les navigateurs se parlent directement en WebRTC (via [PeerJS](https://peerjs.co
 | **Bluff sur le +4** | Désactivé par défaut, conformément à la demande : **impossible de dénoncer un +4**. Activable pour retrouver la contestation classique. |
 | **Annonce « UNO »** | Oublier d'annoncer à l'avant-dernière carte expose à une dénonciation (+2 cartes). Le bouton UNO peut être armé à l'avance. |
 
+## Mettre à jour sans se faire piéger par le cache
+
+GitHub Pages garde les fichiers dix minutes côté navigateur. Après un changement, un visiteur
+peut donc récupérer le nouveau `index.html` mais l'ancien CSS ou l'ancien JavaScript — et voir
+une page à moitié cassée. Pour l'éviter, **estampillez les fichiers avant de pousser** :
+
+```bash
+python3 tools/stamp.py     # écrit ?v=<horodatage> partout
+git commit -am "..." && git push
+```
+
+Le script réécrit la version dans `index.html` et dans chaque import des modules. Comme l'adresse
+change, le navigateur est obligé de tout retélécharger : plus de mélange possible.
+
 ## Déployer sur GitHub Pages
 
 ```bash
