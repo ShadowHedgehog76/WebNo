@@ -19,6 +19,9 @@ export const VALUE_LABEL = {
   flip: 'Retournement',
   skipAll: 'Tout le monde passe',
   draw5: '+5',
+  draw10: '+10',
+  discardAll: 'Défausse totale',
+  reverseDraw4: 'Sens +4',
   wildDraw: 'Joker pioche-couleur',
 };
 
@@ -81,7 +84,10 @@ export function isNumber(card) {
 }
 
 /** Valeurs qui font piocher, et le nombre de cartes correspondant. */
-export const DRAW_AMOUNT = { draw2: 2, wild4: 4, draw5: 5 };
+export const DRAW_AMOUNT = { draw2: 2, wild4: 4, draw5: 5, draw10: 10 };
+
+/** Cartes qui infligent une pioche : dans No Mercy elles s'empilent toutes. */
+export const isDrawCard = (f) => DRAW_AMOUNT[f.value] !== undefined || f.value === 'wildDraw';
 
 /** Points de la carte pour le décompte de fin de manche. */
 export function cardPoints(card) {
@@ -143,6 +149,27 @@ export function buildFlipDeck(copies = 1, rng = Math.random) {
   return deck;
 }
 
+/* ─────────────── UNO Show 'Em No Mercy ───────────────
+   Paquet sans pitié : des pioches qui s'empilent sans limite, un +10, une
+   défausse totale, et l'élimination pure et simple au-delà de 25 cartes. */
+export function buildNoMercyDeck(copies = 1) {
+  const deck = [];
+  for (let c = 0; c < copies; c++) {
+    for (const color of COLORS) {
+      deck.push(makeCard(color, '0'));
+      for (let n = 1; n <= 9; n++) { deck.push(makeCard(color, String(n))); deck.push(makeCard(color, String(n))); }
+      for (const v of ['skip', 'reverse', 'draw2']) { deck.push(makeCard(color, v)); deck.push(makeCard(color, v)); }
+      for (const v of ['draw10', 'skipAll', 'discardAll', 'reverseDraw4']) deck.push(makeCard(color, v));
+    }
+    for (let i = 0; i < 4; i++) {
+      deck.push(makeCard('wild', 'wild'));
+      deck.push(makeCard('wild', 'wild4'));
+      deck.push(makeCard('wild', 'wildDraw'));
+    }
+  }
+  return deck;
+}
+
 /* ─────────────── catalogue des cartes, pour le salon ───────────────
    Les descriptions suivent les règles réellement activées : inutile
    d'annoncer une accumulation ou un échange de mains si l'hôte les a
@@ -169,19 +196,48 @@ export function cardCatalog(settings = {}) {
     'Le joueur suivant saute son tour.');
   add('light', 'green', 'reverse', 'Sens',
     'Le sens de rotation s\'inverse. À deux joueurs, elle revient à faire passer le tour.');
-  add('light', 'red', 'draw2', '+2',
+  if (s.pack !== 'extreme') add('light', 'red', 'draw2', '+2',
     s.stacking
       ? 'Le suivant pioche 2 cartes et passe son tour — sauf s\'il réplique avec un +2 ou un +4, qui fait grimper la pile.'
       : 'Le joueur suivant pioche 2 cartes et passe son tour.');
   add('light', 'wild', 'wild', 'Joker',
     'Posable à tout moment. Vous annoncez la couleur qui continue la partie.');
-  add('light', 'wild', 'wild4', '+4',
+  if (s.pack !== 'extreme') add('light', 'wild', 'wild4', '+4',
     (s.stacking
       ? 'Vous choisissez la couleur et le suivant pioche 4 cartes, sauf s\'il répond par un autre +4. '
       : 'Vous choisissez la couleur et le joueur suivant pioche 4 cartes. ')
     + (s.bluff
       ? 'Il peut vous accuser de bluff si vous pouviez jouer la couleur en cours.'
       : 'La contestation est désactivée : personne ne peut vous accuser de bluff.'));
+
+  if (s.pack === 'nomercy') {
+    add('light', 'blue', 'draw10', '+10',
+      'Le joueur suivant encaisse 10 cartes. Toutes les cartes de pioche s\'empilent entre elles, '
+      + 'sans aucune limite : la note peut devenir monstrueuse.');
+    add('light', 'green', 'skipAll', 'Tout le monde passe',
+      'Tous les autres joueurs sautent leur tour : vous rejouez immédiatement.');
+    add('light', 'yellow', 'discardAll', 'Défausse totale',
+      'Posez-la et jetez d\'un coup toutes vos cartes de cette couleur.');
+    add('light', 'red', 'reverseDraw4', 'Sens +4',
+      'Le sens s\'inverse et le joueur qui devient le suivant ramasse 4 cartes.');
+    add('light', 'wild', 'wildDraw', 'Joker pioche-couleur',
+      'Vous annoncez une couleur : le suivant pioche jusqu\'à ce qu\'il tombe dessus.');
+    add('light', 'wild', 'wild4', 'Élimination',
+      `Ce paquet ne pardonne pas : dès qu'un joueur atteint 25 cartes, il est éliminé de la manche. `
+      + 'Le dernier debout la remporte.');
+    return list;
+  }
+
+  if (s.pack === 'extreme') {
+    add('light', 'wild', 'wild', 'Le lanceur',
+      'Il n\'y a plus de pioche : on appuie sur le lanceur, qui crache un nombre imprévisible de '
+      + 'cartes — souvent aucune, parfois une poignée — puis le tour passe aussitôt.');
+    add('light', 'red', 'draw2', 'Attaque ×2',
+      'Le joueur suivant déclenche deux fois le lanceur. Autant dire qu\'il ne sait pas ce qui l\'attend.');
+    add('light', 'wild', 'wild4', 'Attaque ×4',
+      'Vous choisissez la couleur, et le suivant subit quatre coups de lanceur.');
+    return list;
+  }
 
   if (s.pack !== 'flip') return list;
 

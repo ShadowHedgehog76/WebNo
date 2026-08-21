@@ -15,7 +15,7 @@ function scrollIntoView(el, opts) {
     try { el.scrollIntoView(opts); } catch (_) { /* option non supportée */ }
   }
 }
-const GLYPH = { draw2: '+2', wild4: '+4', draw5: '+5', wild: '', wildDraw: '' };
+const GLYPH = { draw2: '+2', wild4: '+4', draw5: '+5', draw10: '+10', wild: '', wildDraw: '' };
 const COLOR_HEX = {
   red: '#ED1C24', yellow: '#FFDE17', green: '#00A651', blue: '#0072BC',
   pink: '#E5127D', teal: '#00A9A5', orange: '#F58220', purple: '#7B4FA8',
@@ -31,6 +31,11 @@ const SYMBOL = {
     + '<circle cx="4" cy="4" r="1.6" fill="currentColor" stroke="none"/>'
     + '<circle cx="12" cy="2.6" r="1.6" fill="currentColor" stroke="none"/>'
     + '<circle cx="20" cy="4" r="1.6" fill="currentColor" stroke="none"/></svg>',
+  // No Mercy : se défausser de toute une couleur
+  discardAll: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">'
+    + '<rect x="2.5" y="8" width="8" height="11.5" rx="1.6"/>'
+    + '<rect x="7.5" y="4.5" width="8" height="11.5" rx="1.6"/>'
+    + '<path d="M18 6.5l3.5 3.5L18 13.5"/><path d="M21.5 10h-5"/></svg>',
   // le retournement : la carte se retourne
   flip: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">'
     + '<path d="M20.5 9.5A9 9 0 0 0 4.6 7"/><path d="M3.5 14.5A9 9 0 0 0 19.4 17"/>'
@@ -86,6 +91,13 @@ export function cardEl(card, opts = {}) {
       plus.textContent = '+';
       glyph.appendChild(plus);
     }
+  } else if (card.value === 'reverseDraw4') {
+    glyph.innerHTML = SYMBOL.reverse;
+    glyph.classList.add('sm');
+    const badge = document.createElement('i');
+    badge.className = 'glyph-badge';
+    badge.textContent = '+4';
+    glyph.appendChild(badge);
   } else if (SYMBOL[card.value]) {
     glyph.innerHTML = SYMBOL[card.value];
     glyph.classList.add('sm');
@@ -102,6 +114,7 @@ export function cardEl(card, opts = {}) {
     const c = document.createElement('span');
     c.className = 'corner ' + pos;
     if (card.value === 'wild' || card.value === 'wildDraw') c.innerHTML = WHEEL;
+    else if (card.value === 'reverseDraw4') c.innerHTML = SYMBOL.reverse;
     else if (SYMBOL[card.value]) c.innerHTML = SYMBOL[card.value];
     else c.textContent = GLYPH[card.value] ?? card.value;
     d.appendChild(c);
@@ -325,6 +338,7 @@ function renderFan(host, count, cards, verso = false) {
         const b = document.createElement('b');
         if (card.value === 'wild' || card.value === 'wildDraw') b.innerHTML = WHEEL;
         else if (SYMBOL[card.value]) b.innerHTML = SYMBOL[card.value];
+        else if (card.value === 'reverseDraw4') b.innerHTML = SYMBOL.reverse;
         else b.textContent = GLYPH[card.value] ?? card.value;
         c.appendChild(b);
       }
@@ -347,6 +361,7 @@ function renderOpponent(box, p, state, handlers) {
   box.classList.toggle('active', state.turnId === p.id);
   box.classList.toggle('ally', ally);
   box.classList.toggle('offline', !p.connected);
+  box.classList.toggle('out', !!p.out);
 
   const av = box.querySelector('.pb-avatar');
   av.textContent = (p.name || '?').slice(0, 1).toUpperCase();
@@ -370,6 +385,7 @@ function renderOpponent(box, p, state, handlers) {
   };
   bit('pm-score', `${p.score} pt`);
   if (state.settings.mode === 'team') bit('pm-side', ally ? 'Coéquipier' : 'Adverse');
+  if (p.out) bit('pm-out', 'éliminé');
   if (p.isBot) bit('pm-bot', 'Bot');
   if (!p.connected) bit('dc-badge', 'hors ligne');
 
@@ -528,7 +544,8 @@ export function renderGame(state, handlers = {}) {
   const pb = $('pending-badge');
   if (state.pendingDraw > 0) {
     pb.hidden = false;
-    pb.textContent = `+${state.pendingDraw} en attente${state.turnId === state.you ? ' — à vous !' : ''}`;
+    const quoi = state.pack === 'extreme' ? `${state.pendingDraw} coups de lanceur` : `+${state.pendingDraw}`;
+    pb.textContent = `${quoi} en attente${state.turnId === state.you ? ' — à vous !' : ''}`;
   } else pb.hidden = true;
 
   // moi
@@ -549,7 +566,11 @@ export function renderGame(state, handlers = {}) {
   // actions
   const myTurn = state.turnId === state.you && state.phase === 'playing';
   $('btn-draw').disabled = !(state.canDraw || (myTurn && state.pendingDraw > 0));
-  $('btn-draw').textContent = myTurn && state.pendingDraw > 0 ? `Piocher ${state.pendingDraw}` : 'Piocher';
+  const lanceur = state.pack === 'extreme';
+  $('btn-draw').classList.toggle('launcher', lanceur);
+  $('btn-draw').textContent = lanceur
+    ? (myTurn && state.pendingDraw > 0 ? `Lancer ×${state.pendingDraw}` : 'Lancer')
+    : (myTurn && state.pendingDraw > 0 ? `Piocher ${state.pendingDraw}` : 'Piocher');
   $('btn-pass').hidden = !state.canPass;
   $('btn-uno').disabled = !(state.canUno || (state.settings.unoRule && state.hand.length === 2 && state.turnId === state.you));
   $('btn-challenge').hidden = !state.canChallenge;

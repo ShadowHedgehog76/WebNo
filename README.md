@@ -45,6 +45,8 @@ les navigateurs se parlent directement en WebRTC (via [PeerJS](https://peerjs.co
 | Paquet | Ce qu'il change |
 |---|---|
 | **Classique** | Le jeu UNO habituel : 108 cartes, quatre couleurs. |
+| **No Mercy** | Le paquet sans pitié. **Toutes** les cartes de pioche s'empilent entre elles, sans limite — y compris la redoutable **+10**. S'y ajoutent la *défausse totale* (jetez d'un coup toutes vos cartes d'une couleur), *tout le monde passe*, le *sens +4* et le joker pioche-couleur. Et surtout : **passé 25 cartes, vous êtes éliminé de la manche**. Le dernier debout l'emporte. |
+| **Extreme** | Il n'y a plus de pioche : on appuie sur le **lanceur**, qui crache un nombre imprévisible de cartes — rien du tout une fois sur deux, parfois une poignée — puis le tour passe aussitôt. Les cartes +2 et +4 deviennent des *attaques* : le suivant déclenche le lanceur deux ou quatre fois. |
 | **Flip** | Chaque carton a **deux faces sans aucun rapport** — une claire, une sombre, avec ses propres couleurs (rose, turquoise, orange, violet) et ses propres cartes : *tout le monde passe*, *+5*, *joker pioche-couleur*. Une carte **Retournement** fait basculer toute la partie d'un côté à l'autre : mains, défausse et couleur en cours changent d'un coup. Et comme les autres tiennent leurs cartes tournées vers eux, **vous voyez déjà leur autre face** — c'est tout l'intérêt. |
 
 ## Les règles maison (réglables par l'hôte)

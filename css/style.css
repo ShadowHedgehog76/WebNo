@@ -1132,3 +1132,29 @@ body.flipping .hand .card, body.flipping .discard .card, body.flipping .fc {
 .cl-text { min-width: 0; }
 .cl-text b { display: block; font-size: 13.5px; font-weight: 650; }
 .cl-text em { display: block; font-style: normal; font-size: 11.5px; color: var(--muted); line-height: 1.4; margin-top: 2px; }
+
+/* ══════════════════════ No Mercy et Extreme ══════════════════════ */
+.seg.wrap { flex-wrap: wrap; }
+.seg.wrap button { flex: 1 1 40%; }
+
+/* badge collé au symbole : « sens +4 » */
+.card .glyph { position: relative; }
+.glyph-badge {
+  position: absolute; right: -16%; bottom: -12%;
+  font-family: var(--display); font-style: normal;
+  font-size: calc(var(--cw) * .18); line-height: 1;
+  background: #17171D; color: #fff; border: 2px solid #fff; border-radius: 7px;
+  padding: 2px 5px; -webkit-text-stroke: 0;
+  box-shadow: 0 2px 5px rgba(0,0,0,.4);
+}
+
+/* joueur éliminé */
+.player-box.out { opacity: .55; filter: grayscale(.7); }
+.player-box.out .pb-name { text-decoration: line-through; }
+.pb-meta .pm-out { color: #FF938E; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; }
+
+/* le bouton du lanceur */
+.btn.action.launcher {
+  background: linear-gradient(170deg, #FFB05C, #E06A00); --lip: #8A3F00; color: #2B1400;
+}
+.btn.action.launcher:not(:disabled) { animation: none; }

@@ -1,8 +1,11 @@
 // engine.js — moteur de jeu UNO autoritaire (tourne uniquement chez l'hôte)
 import {
-  buildDeck, buildFlipDeck, decksNeeded, shuffle, isWild, isNumber, cardPoints,
-  cardLabel, face, colorsOf, COLORS, COLOR_LABEL, DRAW_AMOUNT,
+  buildDeck, buildFlipDeck, buildNoMercyDeck, decksNeeded, shuffle, isWild, isNumber,
+  cardPoints, cardLabel, face, colorsOf, COLORS, COLOR_LABEL, DRAW_AMOUNT, isDrawCard,
 } from './deck.js';
+
+/** Au-delà de ce nombre de cartes, No Mercy élimine le joueur de la manche. */
+export const MERCY_LIMIT = 25;
 
 export const DEFAULT_SETTINGS = {
   mode: 'solo',            // 'solo' | 'team'
@@ -10,7 +13,7 @@ export const DEFAULT_SETTINGS = {
   sevenZero: true,         // Règle 7-0
   jumpIn: true,            // À la volée
   bluff: false,            // Dénonciation du +4 (désactivée par défaut)
-  pack: 'classic',         // 'classic' | 'flip' (côté clair / côté sombre)
+  pack: 'classic',         // 'classic' | 'flip' | 'nomercy' | 'extreme'
   unoRule: true,           // Obligation de dire UNO
   winCondition: 'points',  // 'points' | 'single'
   targetScore: 500,
@@ -79,6 +82,25 @@ export class UnoGame {
 
   get isFlip() { return this.settings.pack === 'flip'; }
 
+  get isNoMercy() { return this.settings.pack === 'nomercy'; }
+
+  get isExtreme() { return this.settings.pack === 'extreme'; }
+
+  /** Joueurs encore en lice (No Mercy en élimine). */
+  alive() { return this.players.filter((p) => !p.out).length; }
+
+  /**
+   * Le lanceur d'UNO Extreme : on appuie, il crache un nombre imprévisible
+   * de cartes — souvent aucune, parfois une poignée.
+   */
+  launcherShot() {
+    const r = Math.random();
+    if (r < 0.45) return 0;
+    if (r < 0.75) return 1 + Math.floor(Math.random() * 2);
+    if (r < 0.92) return 3 + Math.floor(Math.random() * 2);
+    return 5 + Math.floor(Math.random() * 4);
+  }
+
   /** Le jeu se compte-t-il par groupes ? */
   isTeamPlay() { return this.settings.mode === 'team'; }
 
@@ -92,8 +114,13 @@ export class UnoGame {
   startRound() {
     this.roundNo++;
     this.side = 'light';
-    const copies = decksNeeded(this.players.length, this.settings.startCards);
-    this.deck = shuffle(this.isFlip ? buildFlipDeck(copies) : buildDeck(copies));
+    // No Mercy garde jusqu'à 25 cartes par joueur avant élimination : il faut
+    // prévoir bien plus large que pour une partie ordinaire.
+    const copies = this.isNoMercy
+      ? Math.max(1, Math.ceil((this.players.length * MERCY_LIMIT + 30) / 128))
+      : decksNeeded(this.players.length, this.settings.startCards);
+    this.deck = shuffle(this.isFlip ? buildFlipDeck(copies)
+      : (this.isNoMercy ? buildNoMercyDeck(copies) : buildDeck(copies)));
     this.discard = [];
     this.direction = 1;
     this.pendingDraw = 0;
@@ -107,6 +134,7 @@ export class UnoGame {
     for (const p of this.players) {
       p.hand = [];
       p.mustCallUno = false;
+      p.out = false;
     }
     for (let i = 0; i < this.settings.startCards; i++) {
       for (const p of this.players) p.hand.push(this.drawFromDeck());
@@ -156,7 +184,20 @@ export class UnoGame {
       given.push(c);
     }
     if (player.hand.length > 1) player.mustCallUno = false;
+    this.checkElimination(player);
     return given;
+  }
+
+  /** No Mercy : passé 25 cartes, on quitte la manche sur-le-champ. */
+  checkElimination(player) {
+    if (!this.isNoMercy || player.out || this.phase !== 'playing') return;
+    if (player.hand.length < MERCY_LIMIT) return;
+    player.out = true;
+    player.mustCallUno = false;
+    this.say('out', `${player.name} dépasse ${MERCY_LIMIT} cartes : éliminé de la manche !`,
+      { playerId: player.id });
+    const restants = this.players.filter((p) => !p.out);
+    if (restants.length === 1) this.endRound(restants[0]);
   }
 
   // ------------------------------------------------------------- validation
@@ -170,7 +211,9 @@ export class UnoGame {
   /** Carte jouable pour répondre à une accumulation en cours. */
   stackable(card) {
     if (!this.settings.stacking) return false;
-    const v = this.face(card).value;
+    const f = this.face(card);
+    if (this.isNoMercy) return this.pendingDraw > 0 && isDrawCard(f);
+    const v = f.value;
     if (this.pendingKind === 'draw2') return v === 'draw2' || v === 'wild4';
     if (this.pendingKind === 'wild4') return v === 'wild4';
     if (this.pendingKind === 'draw5') return v === 'draw5';
@@ -324,9 +367,30 @@ export class UnoGame {
         this.say('effect', `${DRAW_AMOUNT[f.value] === 5 ? '+5' : '+2'} — accumulation : ${this.pendingDraw} cartes en attente.`);
         break;
       case 'skipAll':
-        skip = n - 1;
+        skip = Math.max(this.alive() - 1, 0);
         this.say('effect', `${player.name} saute tout le monde et rejoue.`);
         break;
+      case 'draw10':
+        this.pendingDraw += 10;
+        this.pendingKind = 'draw10';
+        this.say('effect', `+10 — accumulation : ${this.pendingDraw} cartes en attente.`);
+        break;
+      case 'discardAll': {
+        const jetees = player.hand.filter((c) => this.face(c).color === f.color);
+        player.hand = player.hand.filter((c) => this.face(c).color !== f.color);
+        for (const c of jetees) this.discard.splice(this.discard.length - 1, 0, c);
+        this.say('effect', `${player.name} se défausse de ${jetees.length} carte${jetees.length > 1 ? 's' : ''} ${COLOR_LABEL[f.color].toLowerCase()}${jetees.length > 1 ? 's' : ''}.`);
+        if (player.hand.length === 1 && this.settings.unoRule) player.mustCallUno = true;
+        if (player.hand.length === 0) return this.endRound(player);
+        break;
+      }
+      case 'reverseDraw4': {
+        this.direction *= -1;
+        this.pendingDraw += 4;
+        this.pendingKind = 'draw2';
+        this.say('effect', `Sens inversé, et ${this.playerAt(1).name} doit encaisser ${this.pendingDraw} cartes.`);
+        break;
+      }
       case 'flip': {
         this.side = this.otherSide();
         this.currentColor = this.face(card).color;
@@ -410,7 +474,10 @@ export class UnoGame {
     const n = this.players.length;
     // le joueur qui reprend la main n'est plus vulnérable à la dénonciation
     for (let s = 0; s < steps; s++) {
-      this.turnIndex = ((this.turnIndex + this.direction) % n + n) % n;
+      let garde = 0;
+      do {
+        this.turnIndex = ((this.turnIndex + this.direction) % n + n) % n;
+      } while (this.players[this.turnIndex].out && ++garde < n);
     }
     this.drawnCardId = null;
     if (this.current.mustCallUno && this.current.hand.length === 1) {
@@ -421,12 +488,27 @@ export class UnoGame {
 
   resolvePenalty(player, autoAdvance) {
     const n = this.pendingDraw;
-    this.giveCards(player, n);
-    this.say('penalty', `${player.name} pioche ${n} carte${n > 1 ? 's' : ''}.`, { playerId: player.id, count: n });
+    if (this.isExtreme) {
+      // la pénalité se compte en coups de lanceur, pas en cartes
+      let total = 0;
+      for (let i = 0; i < n; i++) total += this.fire(player);
+      this.say('penalty', `${player.name} déclenche ${n} fois le lanceur : ${total} carte${total > 1 ? 's' : ''}.`,
+        { playerId: player.id, count: total, shots: n });
+    } else {
+      this.giveCards(player, n);
+      this.say('penalty', `${player.name} pioche ${n} carte${n > 1 ? 's' : ''}.`, { playerId: player.id, count: n });
+    }
     this.pendingDraw = 0;
     this.pendingKind = null;
     this.lastWild4 = null;
     if (autoAdvance) this.advance(1);
+  }
+
+  /** Un coup de lanceur : renvoie le nombre de cartes crachées. */
+  fire(player) {
+    const n = this.launcherShot();
+    if (n > 0) this.giveCards(player, n);
+    return n;
   }
 
   actDraw(player) {
@@ -435,9 +517,24 @@ export class UnoGame {
       this.resolvePenalty(player, true);
       return { ok: true };
     }
+    if (this.isExtreme) {
+      // pas de pioche à l'unité : on appuie sur le lanceur et le tour s'achève
+      const n = this.fire(player);
+      this.say('launcher', n === 0
+        ? `${player.name} appuie sur le lanceur… rien ne sort !`
+        : `${player.name} appuie sur le lanceur : ${n} carte${n > 1 ? 's' : ''} !`,
+        { playerId: player.id, count: n });
+      this.advance(1);
+      return { ok: true };
+    }
     if (this.drawnCardId) return { ok: false, error: 'Vous avez déjà pioché' };
     const [card] = this.giveCards(player, 1);
-    if (!card) return { ok: false, error: 'Plus de cartes' };
+    if (!card) {
+      // paquet et défausse épuisés : on ne bloque pas la partie pour autant
+      this.say('info', `Plus une carte à distribuer : ${player.name} passe son tour.`);
+      this.advance(1);
+      return { ok: true };
+    }
     this.say('draw', `${player.name} pioche une carte.`, { playerId: player.id });
     if (this.matches(card)) {
       this.drawnCardId = card.id;   // il peut la jouer ou passer
@@ -605,6 +702,7 @@ export class UnoGame {
       currentColor: this.currentColor,
       side: this.side,
       pack: this.settings.pack || 'classic',
+      mercyLimit: this.isNoMercy ? MERCY_LIMIT : null,
       top: this.publicCard(top),
       discardCount: this.discard.length,
       deckCount: this.deck ? this.deck.length : 0,
@@ -613,7 +711,7 @@ export class UnoGame {
       players: this.players.map((p) => ({
         id: p.id, name: p.name, isBot: p.isBot, connected: p.connected,
         seat: p.seat, team: p.team, score: p.score,
-        handCount: p.hand.length, mustCallUno: p.mustCallUno,
+        handCount: p.hand.length, mustCallUno: p.mustCallUno, out: !!p.out,
         // en pack Flip on voit l'autre face des cartes que les autres tiennent
         backs: (this.isFlip && p.id !== playerId)
           ? p.hand.map((c) => ({ ...face(c, this.otherSide()) })) : undefined,

@@ -413,6 +413,7 @@ const EVENT_SFX = {
   play: 'play', draw: 'draw', penalty: 'penalty', callout: 'penalty',
   uno: 'uno', swap: 'swap', rotate: 'rotate', jump: 'jump',
   challenge: 'penalty', round: 'shuffle', win: 'win', flip: 'rotate',
+  launcher: 'shuffle', out: 'lose',
 };
 
 function applyState(s) {

@@ -71,6 +71,20 @@ function scoreCard(game, bot, card) {
     case 'draw5':
       s = nextIsAlly ? -40 : 55 + (nextClose ? 35 : 0);
       break;
+    case 'draw10':
+      s = nextIsAlly ? -60 : 75 + (nextClose ? 40 : 0);
+      break;
+    case 'reverseDraw4': {
+      const prev = prevPlayer(game);
+      s = game.areAllies(bot, prev) ? -20 : 50;
+      break;
+    }
+    case 'discardAll': {
+      // on s'en débarrasse d'autant plus volontiers qu'on a cette couleur
+      const memeCouleur = bot.hand.filter((c) => game.face(c).color === f.color).length;
+      s = 30 + memeCouleur * 14;
+      break;
+    }
     case 'skipAll':
       s = 45 + (myCount <= 3 ? 25 : 0);       // on rejoue : toujours bon
       break;
