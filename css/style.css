@@ -2058,3 +2058,54 @@ body.is-pad .flip-flash { display: none !important; }
   .phone-only { font-size: 11px; padding: 7px 10px; margin-bottom: 9px; gap: 7px; }
   .phone-only svg { width: 16px; height: 16px; }
 }
+
+/* ══════════════════════ No Mercy : éliminé ══════════════════════
+   Les cartes restent visibles — on veut voir ce qu'on a raté — mais elles
+   grisent et ne répondent plus. Un flot de cartes défile derrière.    */
+.knocked {
+  position: absolute; left: 0; right: 0; bottom: 0; z-index: 26;
+  height: calc(var(--ch) + 116px);
+  display: grid; place-items: center; overflow: hidden;
+  background: linear-gradient(to top, rgba(6,3,5,.96) 40%, rgba(6,3,5,.82));
+  animation: knIn .4s var(--ease);
+}
+.knocked[hidden] { display: none; }
+@keyframes knIn { from { opacity: 0; } }
+
+.kn-stream {
+  position: absolute; inset: 0; display: flex; align-items: center;
+  opacity: .16; filter: grayscale(1) brightness(.9);
+  animation: defile 26s linear infinite;
+  width: max-content;
+}
+.kn-band { display: flex; gap: 18px; padding: 0 9px; }
+.kn-stream .card {
+  width: calc(var(--cw) * .84); height: calc(var(--ch) * .84);
+  rotate: var(--r, 0deg); flex: none;
+}
+@keyframes defile { to { translate: -50% 0; } }
+
+.kn-text { position: relative; text-align: center; display: grid; gap: 6px; }
+.kn-text b {
+  font-family: var(--display); font-style: italic;
+  font-size: clamp(38px, 7vw, 76px); line-height: 1;
+  color: var(--red); letter-spacing: .04em;
+  text-shadow: 0 0 26px rgba(237,28,36,.5), 0 5px 0 rgba(0,0,0,.6);
+  animation: knPulse 2.4s ease-in-out infinite;
+}
+@keyframes knPulse { 50% { scale: 1.03; } }
+.kn-text em { font-style: normal; font-size: 15px; color: #E7C6C4; font-weight: 600; }
+.kn-text span { font-size: 13px; color: var(--muted); }
+
+/* les cartes du joueur sorti : visibles, mais éteintes et inertes */
+body.is-out .hand .card, body.is-out .pad-hand .card {
+  filter: grayscale(1) brightness(.5);
+  opacity: .5; pointer-events: none; cursor: default;
+}
+body.is-out .hand .card::before, body.is-out .pad-hand .card::before { display: none; }
+body.is-out .actions .btn, body.is-out .pad-actions .btn { pointer-events: none; opacity: .35; }
+body.is-out .turn-flag, body.is-out .pad-turn { display: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  .kn-stream, .kn-text b { animation: none !important; }
+}

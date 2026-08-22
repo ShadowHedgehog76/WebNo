@@ -2,8 +2,8 @@
 import {
   buildDeck, buildFlipDeck, buildNoMercyDeck, decksNeeded, shuffle, isWild, isNumber,
   cardPoints, cardLabel, face, colorsOf, COLORS, COLOR_LABEL, DRAW_AMOUNT, isDrawCard,
-} from './deck.js?v=202608220315';
-import { buildPartyDeck, partyById, PARTY_START, PARTY_MAX, PARTY_SIZE } from './party.js?v=202608220315';
+} from './deck.js?v=202608220324';
+import { buildPartyDeck, partyById, PARTY_START, PARTY_MAX, PARTY_SIZE } from './party.js?v=202608220324';
 
 /** Au-delà de ce nombre de cartes, No Mercy élimine le joueur de la manche. */
 export const MERCY_LIMIT = 25;
@@ -283,6 +283,7 @@ export class UnoGame {
   handle(playerId, action) {
     const player = this.byId(playerId);
     if (!player) return { ok: false, error: 'Joueur inconnu' };
+    if (player.out) return { ok: false, error: 'Vous êtes éliminé de cette manche' };
     if (this.phase !== 'playing' && action.type !== 'callout') {
       return { ok: false, error: 'La manche n\'est pas en cours' };
     }
@@ -838,6 +839,7 @@ export class UnoGame {
       side: this.side,
       pack: this.settings.pack || 'classic',
       mercyLimit: this.isNoMercy ? MERCY_LIMIT : null,
+      eliminated: !!(me && me.out),
       party: this.isParty,
       top: this.publicCard(top),
       discardCount: this.discard.length,
@@ -860,10 +862,10 @@ export class UnoGame {
         && me.id === this.current.id && !me.partyPlayed && me.party.length),
       allyIds: allies.map((a) => a.id),
       allyHands: allies.length ? allyHands : null,
-      legal: me ? this.legalCardsFor(me) : [],
-      canDraw: !!me && this.phase === 'playing' && me.id === this.current.id && !this.drawnCardId,
-      canPass: !!me && this.phase === 'playing' && me.id === this.current.id && !!this.drawnCardId,
-      canUno: !!me && me.hand.length === 1 && me.mustCallUno,
+      legal: (me && !me.out) ? this.legalCardsFor(me) : [],
+      canDraw: !!me && !me.out && this.phase === 'playing' && me.id === this.current.id && !this.drawnCardId,
+      canPass: !!me && !me.out && this.phase === 'playing' && me.id === this.current.id && !!this.drawnCardId,
+      canUno: !!me && !me.out && me.hand.length === 1 && me.mustCallUno,
       canChallenge: !!me && this.settings.bluff && this.phase === 'playing'
         && me.id === this.current.id && this.pendingKind === 'wild4' && this.pendingDraw > 0,
       calloutTargets,

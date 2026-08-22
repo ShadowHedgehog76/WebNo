@@ -1,10 +1,10 @@
 // app.js — orchestration : accueil, salon, boucle hôte (moteur + IA), client
-import { UnoGame, DEFAULT_SETTINGS } from './engine.js?v=202608220315';
-import { botDecide, botJumpIn, botCallout, botDelay, botProfile } from './bot.js?v=202608220315';
-import { HostNet, ClientNet, normalizeCode, codeFromScan } from './net.js?v=202608220315';
-import { isWild } from './deck.js?v=202608220315';
-import * as ui from './ui.js?v=202608220315';
-import * as audio from './audio.js?v=202608220315';
+import { UnoGame, DEFAULT_SETTINGS } from './engine.js?v=202608220324';
+import { botDecide, botJumpIn, botCallout, botDelay, botProfile } from './bot.js?v=202608220324';
+import { HostNet, ClientNet, normalizeCode, codeFromScan } from './net.js?v=202608220324';
+import { isWild } from './deck.js?v=202608220324';
+import * as ui from './ui.js?v=202608220324';
+import * as audio from './audio.js?v=202608220324';
 
 const $ = (id) => document.getElementById(id);
 const BOT_NAMES = ['Léa', 'Max', 'Zoé', 'Nino', 'Iris', 'Sacha', 'Milo', 'Nora', 'Tao', 'Lila',
@@ -590,7 +590,7 @@ async function jouerParty(carte, modele) {
 
 async function onCardClick(card) {
   const s = App.view;
-  if (!s || App.busy) return;
+  if (!s || App.busy || s.eliminated) return;
   if (!s.legal.includes(card.id)) {
     if (s.turnId === s.you && s.phase === 'playing') { ui.toast('Cette carte n\'est pas jouable.', 'warn'); audio.sfx('error'); }
     return;

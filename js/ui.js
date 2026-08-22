@@ -3,9 +3,9 @@ import {
   COLOR_LABEL, isWild, colorsOf, cardCatalog,
   PACKS, packById, MODES, MODE_GROUPS, modesOf, folderOf, modeById, modeId,
   WIN_OPTIONS, winById, winId, BOT_LEVELS, botById,
-} from './deck.js?v=202608220315';
-import { PARTY_CARDS, partyById } from './party.js?v=202608220315';
-import { qrSvg } from './qr.js?v=202608220315';
+} from './deck.js?v=202608220324';
+import { PARTY_CARDS, partyById } from './party.js?v=202608220324';
+import { qrSvg } from './qr.js?v=202608220324';
 
 /** Lien d'invitation d'une room. */
 export function joinUrl(code) {
@@ -821,6 +821,7 @@ export function renderGame(state, handlers = {}) {
   document.body.classList.toggle('is-screen', party && !!state.spectator);
   document.body.classList.toggle('is-pad', party && !state.spectator);
   renderSeats(state, handlers);
+  renderKnocked(state);
   renderPartyScreen(state);
   renderPad(state, handlers);
   setTurnDeadline(state.party && state.phase === 'playing' ? state.turnLeft : null);
@@ -869,6 +870,49 @@ export function renderGame(state, handlers = {}) {
   $('btn-uno').disabled = !(state.canUno || (state.settings.unoRule && state.hand.length === 2 && state.turnId === state.you));
   $('btn-challenge').hidden = !state.canChallenge;
 
+}
+
+/* ─────────────────── No Mercy : l'élimination ───────────────────
+   Sorti de la manche, on garde ses cartes sous les yeux mais on n'y touche
+   plus : elles grisent, et un bandeau le dit franchement.               */
+const KN_COULEURS = ['red', 'yellow', 'green', 'blue'];
+const KN_VALEURS = ['0', '3', '5', '7', '9', 'skip', 'reverse', 'draw2', 'draw10'];
+
+function remplirDefile() {
+  const flux = $('kn-stream');
+  if (!flux || flux.childElementCount) return;
+  // deux séries identiques mises bout à bout : le défilement boucle sans saut
+  for (let serie = 0; serie < 2; serie++) {
+    const bande = document.createElement('span');
+    bande.className = 'kn-band';
+    for (let i = 0; i < 14; i++) {
+      const c = {
+        id: `kn${serie}-${i}`,
+        color: KN_COULEURS[Math.floor(Math.random() * KN_COULEURS.length)],
+        value: KN_VALEURS[Math.floor(Math.random() * KN_VALEURS.length)],
+      };
+      const el = cardEl(c);
+      el.style.setProperty('--r', (Math.random() * 18 - 9).toFixed(1) + 'deg');
+      bande.appendChild(el);
+    }
+    flux.appendChild(bande);
+  }
+}
+
+function renderKnocked(state) {
+  const kn = $('knocked');
+  if (!kn) return;
+  const sorti = !!state.eliminated;
+  kn.hidden = !sorti;
+  document.body.classList.toggle('is-out', sorti);
+  if (!sorti) return;
+  remplirDefile();
+  const limite = state.mercyLimit || 25;
+  $('kn-sub').textContent = `Vous avez dépassé ${limite} cartes.`;
+  const restants = state.players.filter((p) => !p.out).length;
+  $('kn-wait').textContent = restants > 1
+    ? `La manche continue sans vous — ${restants} joueurs encore en lice.`
+    : 'La manche est terminée.';
 }
 
 /* ─────────────────── mode party : deux écrans, un seul jeu ───────────────────
