@@ -1375,11 +1375,11 @@ body.dark-side .pack-flip .card.back::after,
 .pk-mini .pk-fan { --cw: 34px; --ch: 51px; width: 76px; height: 56px; flex: none; }
 .pk-mini { flex: none; }
 
-.packs-modal { width: min(560px, 94vw); min-width: 0; }
-.packs-modal:has(.three) { width: min(830px, 94vw); }
+.packs-modal { width: min(672px, 94vw); min-width: 0; }
+.packs-modal:has(.three) { width: min(986px, 94vw); }
 .pack-grid {
-  display: grid; grid-template-columns: repeat(2, var(--tuile, 258px));
-  justify-content: center; gap: 14px; margin: 4px 0 18px;
+  display: grid; grid-template-columns: repeat(2, var(--tuile, 306px));
+  justify-content: center; gap: 16px; margin: 4px 0 18px;
   max-height: 66vh; overflow-y: auto; padding-right: 4px;
   scrollbar-width: thin; scrollbar-color: rgba(255,255,255,.22) transparent;
 }
@@ -1388,7 +1388,7 @@ body.dark-side .pack-flip .card.back::after,
 @media (max-width: 620px) { .pack-grid { grid-template-columns: 1fr; --tuile: 100%; } }
 .pack-tile {
   display: grid; gap: 10px; padding: 16px 14px 14px; cursor: pointer;
-  height: 218px; grid-template-rows: auto 1fr; align-content: start;
+  height: 262px; grid-template-rows: auto 1fr; align-content: start;
   background: rgba(255,255,255,.045); border: 1.5px solid var(--line);
   border-radius: 18px; color: var(--txt); text-align: center;
   transition: background .18s, border-color .18s, transform .16s var(--ease);
@@ -1396,7 +1396,7 @@ body.dark-side .pack-flip .card.back::after,
 .pack-tile:hover { background: rgba(255,255,255,.09); transform: translateY(-3px); }
 .pack-tile.on { border-color: var(--gold); box-shadow: 0 0 0 2px rgba(255,201,60,.28); }
 .pt-vis {
-  position: relative; height: 116px; border-radius: 13px;
+  position: relative; height: 142px; border-radius: 13px;
   background: radial-gradient(60% 70% at 50% 40%, var(--felt-1), var(--felt-3));
   box-shadow: inset 0 0 26px rgba(0,0,0,.45);
   display: grid; place-items: center; overflow: hidden;
@@ -1525,7 +1525,7 @@ body.dark-side .pack-flip .card.back::after,
 .lobby-foot .btn-blue { flex: none; }
 
 /* ══════════════════════ aperçus des réglages ══════════════════════ */
-.pack-grid.three { grid-template-columns: repeat(3, var(--tuile, 258px)); }
+.pack-grid.three { grid-template-columns: repeat(3, var(--tuile, 306px)); }
 @media (max-width: 860px) { .pack-grid.three { grid-template-columns: repeat(2, var(--tuile, 258px)); } }
 
 /* objectif de points */
