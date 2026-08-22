@@ -1,10 +1,10 @@
 // app.js — orchestration : accueil, salon, boucle hôte (moteur + IA), client
-import { UnoGame, DEFAULT_SETTINGS } from './engine.js?v=202608220202';
-import { botDecide, botJumpIn, botCallout, botDelay, botProfile } from './bot.js?v=202608220202';
-import { HostNet, ClientNet, normalizeCode, codeFromScan } from './net.js?v=202608220202';
-import { isWild } from './deck.js?v=202608220202';
-import * as ui from './ui.js?v=202608220202';
-import * as audio from './audio.js?v=202608220202';
+import { UnoGame, DEFAULT_SETTINGS } from './engine.js?v=202608220242';
+import { botDecide, botJumpIn, botCallout, botDelay, botProfile } from './bot.js?v=202608220242';
+import { HostNet, ClientNet, normalizeCode, codeFromScan } from './net.js?v=202608220242';
+import { isWild } from './deck.js?v=202608220242';
+import * as ui from './ui.js?v=202608220242';
+import * as audio from './audio.js?v=202608220242';
 
 const $ = (id) => document.getElementById(id);
 const BOT_NAMES = ['Léa', 'Max', 'Zoé', 'Nino', 'Iris', 'Sacha', 'Milo', 'Nora', 'Tao', 'Lila',
@@ -13,6 +13,7 @@ const BOT_NAMES = ['Léa', 'Max', 'Zoé', 'Nino', 'Iris', 'Sacha', 'Milo', 'Nora
 
 /** Places disponibles : en party l'hôte observe, il occupe une place en plus. */
 function maxPlayers(settings) {
+  if (settings.mode === 'party') return (settings.partySize || 12) + 1;  // l'hôte est l'écran
   return settings.mode === 'team' ? (settings.teamSize || 2) * 2 : 4;
 }
 const HOST_ID = 'p0';
@@ -61,6 +62,14 @@ class Host {
       if (this.byPeer(peerId)) return;
       if (this.game) { this.rejoin(peerId, msg.name); return; }
       if (this.players.length >= maxPlayers(this.settings)) { this.net.send(peerId, { t: 'error', msg: 'La room est complète.', fatal: true }); return; }
+      if (this.settings.mode === 'party' && msg.handheld === false) {
+        this.net.send(peerId, {
+          t: 'error', fatal: true,
+          msg: 'Le mode party se joue au téléphone : votre appareil sert de manette, '
+            + 'et le plateau reste sur l\'écran de l\'hôte.',
+        });
+        return;
+      }
       const name = sanitizeName(msg.name, this.players.map((p) => p.name));
       this.players.push({ id: this.newId(), name, isHost: false, isBot: false, peerId });
       audio.sfx('join');
@@ -213,7 +222,10 @@ class Host {
     };
   }
 
-  roster() { return this.players; }
+  /** Les joueurs assis à la table : en party, l'hôte n'est que l'écran. */
+  roster() {
+    return this.settings.mode === 'party' ? this.players.filter((p) => !p.isHost) : this.players;
+  }
 
   syncLobby() {
     const payload = this.lobbyPayload();
@@ -236,6 +248,7 @@ class Host {
 
   broadcastStart() {
     for (const p of this.players) if (p.peerId) this.net.send(p.peerId, { t: 'started' });
+    if (this.settings.mode === 'party') pleinEcran();
     audio.playMusic('game');
     audio.sfx('shuffle');
     ui.showScreen('game');
@@ -356,6 +369,7 @@ class Host {
 
   localAction(action) {
     if (!this.game) return;
+    if (this.settings.mode === 'party') return;   // l'hôte ne joue pas
     const res = this.game.handle(HOST_ID, action);
     if (!res.ok) { ui.toast(res.error, 'bad'); audio.sfx('error'); }
     this.afterChange();
@@ -383,7 +397,7 @@ class Guest {
       ui.toast('Connexion à l\'hôte perdue.', 'bad');
       setTimeout(() => location.reload(), 2200);
     });
-    this.net.send({ t: 'hello', name: this.name });
+    this.net.send({ t: 'hello', name: this.name, handheld: isHandheld() });
   }
 
   onMessage(msg) {
@@ -396,6 +410,7 @@ class Guest {
         ui.setWaiting(null);
         break;
       case 'started':
+        if (App.lobby && App.lobby.settings && App.lobby.settings.mode === 'party') pleinEcran();
         audio.playMusic('game');
         audio.sfx('shuffle');
         ui.setWaiting(null);
@@ -458,7 +473,7 @@ const EVENT_SFX = {
   play: 'play', draw: 'draw', penalty: 'penalty', callout: 'penalty',
   uno: 'uno', swap: 'swap', rotate: 'rotate', jump: 'jump',
   challenge: 'penalty', round: 'shuffle', win: 'win', flip: 'rotate',
-  launcher: 'shuffle', out: 'lose',
+  launcher: 'shuffle', out: 'lose', party: 'swap', shield: 'uno',
 };
 
 function applyState(s) {
@@ -509,6 +524,25 @@ function applyState(s) {
 function send(action) {
   if (App.role === 'host') App.host.localAction(action);
   else if (App.client) App.client.action(action);
+}
+
+/** Joue une carte party, en demandant sa cible si elle en réclame une. */
+async function jouerParty(carte, modele) {
+  const s = App.view;
+  if (!s) return;
+  const action = { type: 'party', cardId: carte.id };
+  if (modele.cible) {
+    const cible = await ui.pickTarget(s);
+    if (!cible) return;
+    action.targetId = cible;
+  }
+  if (modele.id === 'cadeau') {
+    const don = await ui.pickGift(s);
+    if (!don) return;
+    action.giveId = don;
+  }
+  audio.sfx('swap');
+  send(action);
 }
 
 async function onCardClick(card) {
@@ -601,6 +635,15 @@ function wireHome() {
 }
 
 function wireLobby() {
+  const agrandirQr = (source) => {
+    const code = $('code-value').textContent;
+    if (!code || code === '-----') return;
+    $('qr-big-code').textContent = code;
+    $('qr-big').innerHTML = $(source).innerHTML;
+    $('overlay-qr').hidden = false;
+  };
+  $('qr-box-party').onclick = () => agrandirQr('qr-box-party');
+  $('btn-copy-party').onclick = () => $('btn-copy').click();
   $('qr-box').onclick = () => {
     const code = $('code-value').textContent;
     if (!code || code === '-----') return;
@@ -620,6 +663,8 @@ function wireLobby() {
   $('btn-fill-bots').onclick = () => App.host && App.host.fillBots();
 
   $('btn-rules').onclick = () => { $('overlay-rules').hidden = false; };
+  $('btn-settings').onclick = () => { $('overlay-settings').hidden = false; };
+  $('overlay-settings').querySelector('[data-cancel]').onclick = () => { $('overlay-settings').hidden = true; };
   $('overlay-rules').querySelector('[data-cancel]').onclick = () => { $('overlay-rules').hidden = true; };
 
   // les quatre réglages du salon suivent le même schéma
@@ -731,6 +776,16 @@ function wireGame() {
       ui.toast(App.armedUno ? 'UNO armé : votre prochaine pose annoncera UNO.' : 'UNO désarmé.');
     }
   };
+  // la manette du mode party : les mêmes actions, ses propres boutons
+  $('pad-draw').onclick = () => send({ type: 'draw' });
+  $('pad-pass').onclick = () => send({ type: 'pass' });
+  $('pad-uno').onclick = () => $('btn-uno').click();
+  $('pad-party').onclick = () => {
+    if (!App.view) return;
+    ui.showPartyHand(App.view, (carte, modele) => jouerParty(carte, modele));
+  };
+  $('overlay-party').querySelector('[data-cancel]').onclick = () => ui.hidePartyHand();
+
   $('btn-quit').onclick = () => leave();
   $('btn-next-round').onclick = () => App.host && App.host.nextRound();
   $('btn-rematch').onclick = () => App.host && App.host.rematch();
@@ -742,6 +797,25 @@ function wireGame() {
 }
 
 /* ── clavier ─────────────────────────────────────────────────────── */
+/** Passe en plein écran, et demande le paysage sur un téléphone. */
+function pleinEcran() {
+  const el = document.documentElement;
+  const demande = el.requestFullscreen || el.webkitRequestFullscreen;
+  if (demande) {
+    try {
+      const p = demande.call(el);
+      if (p && p.catch) p.catch(() => {});
+    } catch (_) { /* refusé : la partie se joue quand même */ }
+  }
+  const o = screen.orientation;
+  if (o && o.lock && isHandheld()) {
+    try {
+      const p = o.lock('landscape');
+      if (p && p.catch) p.catch(() => {});
+    } catch (_) { /* l'appareil n'en veut pas */ }
+  }
+}
+
 /* ── lecture d'un QR code par la caméra ────────────────────────────── */
 // Un ordinateur de bureau sait souvent lire les codes-barres, mais on ne
 // braque pas un écran devant sa webcam : le bouton n'a de sens qu'au doigt.
@@ -845,7 +919,7 @@ function wireKeyboard() {
     }
     if (k === 'Escape') {
       for (const id of ['overlay-help', 'overlay-packs', 'overlay-modes', 'overlay-win',
-        'overlay-bots', 'overlay-rules', 'overlay-scan', 'overlay-qr', 'overlay-color', 'overlay-target']) {
+        'overlay-bots', 'overlay-rules', 'overlay-party', 'overlay-settings', 'overlay-scan', 'overlay-qr', 'overlay-color', 'overlay-target']) {
         const ov = $(id);
         if (!ov.hidden) { const c = ov.querySelector('[data-cancel]'); if (c) c.click(); e.preventDefault(); return; }
       }

@@ -1,5 +1,5 @@
 // bot.js — IA des joueurs virtuels (exécutée chez l'hôte)
-import { isWild, isNumber, colorsOf } from './deck.js?v=202608220202';
+import { isWild, isNumber, colorsOf } from './deck.js?v=202608220242';
 
 const LEVELS = {
   easy:   { smart: 0.15, uno: 0.55, callout: 0.15, jump: 0.10, challenge: 0.2, delay: [900, 1600] },
@@ -211,6 +211,58 @@ export function botJumpIn(game, bot) {
   }
   if (bot.hand.length === 2 && Math.random() < prof.uno) action.uno = true;
   return action;
+}
+
+/**
+ * Le bot joue-t-il une carte party ? Il ne les gaspille pas : il attend
+ * d'avoir une bonne cible, ou d'être lui-même en difficulté.
+ */
+export function botParty(game, bot) {
+  if (!game.isParty || game.phase !== 'playing') return null;
+  if (bot.id !== game.current.id || bot.partyPlayed || !bot.party.length) return null;
+  const prof = botProfile(game.settings.botLevel);
+  if (Math.random() > prof.smart * 0.55) return null;
+
+  const foes = game.players.filter((p) => p.id !== bot.id && !p.out && !game.areAllies(bot, p));
+  const menace = foes.slice().sort((a, b) => a.hand.length - b.hand.length)[0];
+  const gros = foes.slice().sort((a, b) => b.hand.length - a.hand.length)[0];
+  const moi = bot.hand.length;
+
+  for (const carte of bot.party) {
+    const quoi = carte.party;
+    const jouer = (extra = {}) => ({ type: 'party', cardId: carte.id, ...extra });
+    switch (quoi) {
+      case 'sniper':
+        if (menace && menace.hand.length <= 3) return jouer({ targetId: menace.id });
+        break;
+      case 'bouclier':
+        if (game.pendingDraw > 0 || moi >= 10) return jouer();
+        break;
+      case 'echange':
+        if (menace && moi - menace.hand.length >= 4) return jouer({ targetId: menace.id });
+        break;
+      case 'cadeau':
+        if (moi >= 3 && gros) {
+          const pire = bot.hand.slice().sort((a, b) => {
+            const fa = game.face(a), fb = game.face(b);
+            return (isNumber(fb) ? Number(fb.value) : 20) - (isNumber(fa) ? Number(fa.value) : 20);
+          })[0];
+          if (pire) return jouer({ targetId: gros.id, giveId: pire.id });
+        }
+        break;
+      case 'tempete':
+      case 'contagion':
+        if (moi <= 4) return jouer();
+        break;
+      case 'grandvent':
+        if (menace && moi - menace.hand.length >= 5) return jouer();
+        break;
+      case 'raccourci':
+        if (moi <= 3) return jouer();
+        break;
+    }
+  }
+  return null;
 }
 
 /** Le bot dénonce-t-il un joueur qui a oublié de dire UNO ? */

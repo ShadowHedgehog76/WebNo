@@ -9,7 +9,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-<link rel="stylesheet" href="css/style.css?v=202608220202" />
+<link rel="stylesheet" href="css/style.css?v=202608220242" />
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='16' fill='%230a0a0f'/><ellipse cx='50' cy='50' rx='38' ry='26' fill='%23ED1C24' transform='rotate(-20 50 50)'/><text x='50' y='60' font-size='30' font-family='Arial Black,sans-serif' font-style='italic' fill='%23fff' text-anchor='middle' transform='rotate(-20 50 50)'>W</text></svg>" />
 </head>
 <body>
@@ -120,7 +120,18 @@
         </div>
       </section>
 
-      <section class="panel">
+      <section class="panel code-panel" id="code-panel">
+        <h3>Rejoindre la partie</h3>
+        <div class="code-box" id="code-box-party">
+          <span class="code-label">Code de la room</span>
+          <div class="code-value" id="code-value-party">-----</div>
+          <button class="qr" id="qr-box-party" title="Agrandir" aria-label="Agrandir le QR code"></button>
+          <p class="qr-hint">Scannez avec l'appareil photo de votre téléphone</p>
+          <button class="btn btn-tiny" id="btn-copy-party">Copier le lien</button>
+        </div>
+      </section>
+
+      <section class="panel" id="settings-panel">
         <h3>Paramètres</h3>
         <div class="settings" id="settings">
           <div class="set-group">
@@ -180,6 +191,7 @@
     <footer class="lobby-foot">
       <button class="btn btn-ghost" id="btn-lobby-leave">Quitter</button>
       <button class="btn btn-blue btn-big" id="btn-rules">Voir les règles</button>
+      <button class="btn btn-ghost btn-big party-only" id="btn-settings">Réglages</button>
       <p id="lobby-status" class="status"></p>
       <button class="btn btn-green btn-big host-only" id="btn-start">Lancer la partie</button>
     </footer>
@@ -232,6 +244,27 @@
       </div>
       <div class="pending-badge" id="pending-badge" hidden></div>
     </div>
+  </div>
+
+  <!-- mode party : l'écran de l'hôte annonce ce qui se passe -->
+  <div class="party-hud" id="party-hud" hidden>
+    <div class="ph-turn"><b id="ph-name">—</b><em id="ph-sub"></em></div>
+  </div>
+
+  <!-- mode party : la manette du joueur, sur son téléphone -->
+  <div class="pad" id="pad" hidden>
+    <header class="pad-top">
+      <span class="pad-me"><i id="pad-avatar"></i><b id="pad-name">Vous</b></span>
+      <span class="pad-stats"><b id="pad-cards">7</b> cartes · <b id="pad-score">0</b> pt</span>
+      <span class="pad-turn" id="pad-turn">En attente</span>
+    </header>
+    <div class="pad-hand" id="pad-hand"></div>
+    <footer class="pad-actions">
+      <button class="btn action uno" id="pad-uno">UNO !</button>
+      <button class="btn action" id="pad-draw">Piocher</button>
+      <button class="btn action" id="pad-pass" hidden>Passer</button>
+      <button class="btn action party" id="pad-party" hidden>Cartes party <b id="pad-party-n">0</b></button>
+    </footer>
   </div>
 
   <div class="myzone">
@@ -294,6 +327,23 @@
       <button class="btn btn-green host-only" id="btn-rematch">Revanche</button>
       <button class="btn btn-ghost" id="btn-home">Accueil</button>
     </div>
+  </div>
+</div>
+
+<div class="overlay" id="overlay-settings" hidden>
+  <div class="modal wide settings-modal">
+    <h3>Réglages de la partie</h3>
+    <div id="settings-slot"></div>
+    <button class="btn btn-ghost btn-tiny" data-cancel>Fermer</button>
+  </div>
+</div>
+
+<div class="overlay" id="overlay-party" hidden>
+  <div class="modal wide party-modal">
+    <h3>Vos cartes party</h3>
+    <p class="modal-note">Elles se jouent en plus de votre tour — une seule par tour.</p>
+    <div class="party-grid" id="party-grid"></div>
+    <button class="btn btn-ghost btn-tiny" data-cancel>Fermer</button>
   </div>
 </div>
 
@@ -379,6 +429,6 @@
 </div>
 
 <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
-<script type="module" src="js/app.js?v=202608220202"></script>
+<script type="module" src="js/app.js?v=202608220242"></script>
 </body>
 </html>

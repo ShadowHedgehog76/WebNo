@@ -208,30 +208,6 @@ export const PACKS = [
 
 export const packById = (id) => PACKS.find((p) => p.id === id) || PACKS[0];
 
-/** Les modes de jeu, avec l'aperçu de leur disposition à table. */
-export const MODES = [
-  {
-    id: 'solo', name: 'Chacun pour soi',
-    tagline: 'Jusqu\'à quatre joueurs, et le premier à vider sa main l\'emporte.',
-    seats: 4, teams: false,
-  },
-  {
-    id: 'team2', mode: 'team', teamSize: 2, name: 'Équipes 2 v 2',
-    tagline: 'Quatre joueurs, deux camps. Vous voyez le jeu de votre coéquipier.',
-    seats: 4, teams: true,
-  },
-  {
-    id: 'team3', mode: 'team', teamSize: 3, name: 'Équipes 3 v 3',
-    tagline: 'Six joueurs qui alternent autour de la table : A, B, A, B…',
-    seats: 6, teams: true,
-  },
-  {
-    id: 'team4', mode: 'team', teamSize: 4, name: 'Équipes 4 v 4',
-    tagline: 'Huit joueurs, la table au complet. Chaque camp joue à cartes ouvertes.',
-    seats: 8, teams: true,
-  },
-];
-
 /** Les conditions de victoire proposées. */
 export const WIN_OPTIONS = [
   { id: 'p200', winCondition: 'points', targetScore: 200, name: '200 points',
@@ -260,7 +236,41 @@ export const BOT_LEVELS = [
 ];
 export const botById = (id) => BOT_LEVELS.find((b) => b.id === id) || BOT_LEVELS[1];
 
+/** Les modes de jeu, rangés par famille. */
+export const MODES = [
+  {
+    id: 'solo', groupe: 'Chacun pour soi', name: 'Chacun pour soi',
+    tagline: 'Jusqu\'à quatre joueurs, et le premier à vider sa main l\'emporte.',
+    seats: 4, teams: false,
+  },
+  {
+    id: 'team2', groupe: 'Groupe', mode: 'team', teamSize: 2, name: 'Équipes 2 v 2',
+    tagline: 'Quatre joueurs, deux camps. Vous voyez le jeu de votre coéquipier.',
+    seats: 4, teams: true,
+  },
+  {
+    id: 'team3', groupe: 'Groupe', mode: 'team', teamSize: 3, name: 'Équipes 3 v 3',
+    tagline: 'Six joueurs qui alternent autour de la table : A, B, A, B…',
+    seats: 6, teams: true,
+  },
+  {
+    id: 'team4', groupe: 'Groupe', mode: 'team', teamSize: 4, name: 'Équipes 4 v 4',
+    tagline: 'Huit joueurs, la table au complet. Chaque camp joue à cartes ouvertes.',
+    seats: 8, teams: true,
+  },
+  {
+    id: 'party', groupe: 'Extra', mode: 'party', name: 'Party',
+    tagline: 'De 8 à 32 joueurs. L\'écran de l\'hôte devient la table, chaque téléphone '
+      + 'devient une main. Avec des cartes party pour semer le chaos.',
+    seats: 12, teams: false, party: true,
+  },
+];
+
+/** Les familles, dans l'ordre d'affichage. */
+export const MODE_GROUPS = ['Chacun pour soi', 'Groupe', 'Extra'];
+
 export function modeId(settings = {}) {
+  if (settings.mode === 'party') return 'party';
   return settings.mode === 'team' ? 'team' + (settings.teamSize || 2) : 'solo';
 }
 export const modeById = (id) => MODES.find((m) => m.id === id) || MODES[0];

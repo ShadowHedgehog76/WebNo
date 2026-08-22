@@ -25,9 +25,19 @@ les navigateurs se parlent directement en WebRTC (via [PeerJS](https://peerjs.co
 - **Reconnexion** : il suffit de retaper le code pour revenir. On retrouve son siège et sa main
   telle qu'on l'avait laissée, le pseudo servant à reconnaître sa place ; sans correspondance, on
   prend celle d'un bot au hasard. Le code de la dernière room est proposé d'office au retour.
-- **Deux modes** : *chacun pour soi* jusqu'à 4 joueurs, ou *équipes* en **2 v 2, 3 v 3 ou 4 v 4**
-  (jusqu'à 8 joueurs). Les équipes alternent autour de la table — A, B, A, B… — et chaque joueur
-  voit le jeu de tous ses coéquipiers (les places 1-3 contre les places 2-4,
+- **Les modes**, rangés en trois familles dans leur galerie :
+  - **Chacun pour soi**, jusqu'à 4 joueurs ;
+  - **Groupe** — 2 v 2, 3 v 3 ou 4 v 4 (jusqu'à 8 joueurs). Les équipes alternent autour de la
+    table — A, B, A, B… — et chaque joueur voit le jeu de tous ses coéquipiers ;
+  - **Extra — Party**, de 8 à 32 joueurs, sur le principe du GamePad de la Wii U : **l'écran de
+    l'hôte est la table** (plateau, joueurs tout autour, cartes en grand, aucune main visible) et
+    **chaque téléphone est une manette** (sa main, ses boutons, aucun plateau). Seuls les
+    téléphones peuvent rejoindre ; les deux écrans passent en plein écran. Le salon change
+    d'allure : les joueurs à gauche, le code et le QR en grand à droite pour être scannés de loin,
+    les réglages derrière un bouton. Chacun reçoit en plus une **main party** — des cartes
+    d'action pensées pour les grandes tablées (Tempête, Visée, Bouclier, Contagion, Grand vent,
+    Raccourci, Cadeau, Troc), qui se jouent en supplément de son tour, une par tour, et
+    **qu'aucun 7-0 ne peut échanger** (les places 1-3 contre les places 2-4,
   l'hôte peut permuter les joueurs avec le bouton ⇅). En équipes, **les coéquipiers jouent à
   cartes ouvertes** : la main de votre partenaire s'affiche triée sur sa plaque.
 - **Victoire** : au score (200 / 300 / 500 points, décompte UNO classique) ou en une seule manche.

@@ -2,13 +2,14 @@
 import {
   buildDeck, buildFlipDeck, buildNoMercyDeck, decksNeeded, shuffle, isWild, isNumber,
   cardPoints, cardLabel, face, colorsOf, COLORS, COLOR_LABEL, DRAW_AMOUNT, isDrawCard,
-} from './deck.js?v=202608220202';
+} from './deck.js?v=202608220242';
+import { buildPartyDeck, partyById, PARTY_START, PARTY_MAX, PARTY_SIZE } from './party.js?v=202608220242';
 
 /** Au-delà de ce nombre de cartes, No Mercy élimine le joueur de la manche. */
 export const MERCY_LIMIT = 25;
 
 export const DEFAULT_SETTINGS = {
-  mode: 'solo',            // 'solo' | 'team'
+  mode: 'solo',            // 'solo' | 'team' | 'party'
   stacking: true,          // Accumulation des +2 / +4
   sevenZero: true,         // Règle 7-0
   jumpIn: true,            // À la volée
@@ -18,6 +19,7 @@ export const DEFAULT_SETTINGS = {
   winCondition: 'points',  // 'points' | 'single'
   targetScore: 500,
   teamSize: 2,             // mode équipes : 2v2, 3v3 ou 4v4
+  partySize: 12,           // mode party : de 8 à 32 joueurs
   botLevel: 'normal',      // 'easy' | 'normal' | 'hard'
   startCards: 7,
 };
@@ -86,6 +88,8 @@ export class UnoGame {
 
   get isExtreme() { return this.settings.pack === 'extreme'; }
 
+  get isParty() { return this.settings.mode === 'party'; }
+
   /** Joueurs encore en lice (No Mercy en élimine). */
   alive() { return this.players.filter((p) => !p.out).length; }
 
@@ -125,16 +129,26 @@ export class UnoGame {
     this.direction = 1;
     this.pendingDraw = 0;
     this.pendingKind = null;
+    this.pendingSkip = 0;
     this.drawnCardId = null;
     this.lastWild4 = null;
     this.roundResult = null;
     this.phase = 'playing';
     this.log = [];
 
+    this.partyDeck = this.isParty ? buildPartyDeck(this.players.length) : [];
     for (const p of this.players) {
       p.hand = [];
+      p.party = [];
+      p.shield = false;
+      p.partyPlayed = false;
       p.mustCallUno = false;
       p.out = false;
+    }
+    if (this.isParty) {
+      for (const p of this.players) {
+        for (let i = 0; i < PARTY_START; i++) this.givePartyCard(p);
+      }
     }
     for (let i = 0; i < this.settings.startCards; i++) {
       for (const p of this.players) p.hand.push(this.drawFromDeck());
@@ -173,6 +187,14 @@ export class UnoGame {
     this.deck = shuffle(recycled);
     this.discard = [top];
     this.say('info', 'La pioche est vide : la défausse est remélangée.');
+  }
+
+  /** Une carte party de plus, dans la limite de ce qu'on peut tenir. */
+  givePartyCard(player) {
+    if (!this.isParty || player.party.length >= PARTY_MAX) return null;
+    const c = this.partyDeck.pop();
+    if (c) player.party.push(c);
+    return c;
   }
 
   giveCards(player, n) {
@@ -271,6 +293,7 @@ export class UnoGame {
       case 'uno':      res = this.actUno(player); break;
       case 'callout':  res = this.actCallout(player, action.targetId); break;
       case 'challenge':res = this.actChallenge(player); break;
+      case 'party':    res = this.actParty(player, action); break;
       default:         res = { ok: false, error: 'Action inconnue' };
     }
     if (res.ok) this.version++;
@@ -472,6 +495,7 @@ export class UnoGame {
 
   advance(steps = 1) {
     const n = this.players.length;
+    if (this.pendingSkip) { steps += this.pendingSkip; this.pendingSkip = 0; }
     // le joueur qui reprend la main n'est plus vulnérable à la dénonciation
     for (let s = 0; s < steps; s++) {
       let garde = 0;
@@ -480,6 +504,7 @@ export class UnoGame {
       } while (this.players[this.turnIndex].out && ++garde < n);
     }
     this.drawnCardId = null;
+    if (this.isParty) this.current.partyPlayed = false;
     if (this.current.mustCallUno && this.current.hand.length === 1) {
       this.current.mustCallUno = false; // il est passé entre les mailles
     }
@@ -487,6 +512,14 @@ export class UnoGame {
   }
 
   resolvePenalty(player, autoAdvance) {
+    if (this.isParty && player.shield) {
+      player.shield = false;
+      this.say('shield', `${player.name} lève son bouclier : la pénalité est annulée.`,
+        { playerId: player.id });
+      this.pendingDraw = 0; this.pendingKind = null; this.lastWild4 = null;
+      if (autoAdvance) this.advance(1);
+      return;
+    }
     const n = this.pendingDraw;
     if (this.isExtreme) {
       // la pénalité se compte en coups de lanceur, pas en cartes
@@ -498,6 +531,9 @@ export class UnoGame {
       this.giveCards(player, n);
       this.say('penalty', `${player.name} pioche ${n} carte${n > 1 ? 's' : ''}.`, { playerId: player.id, count: n });
     }
+    // encaisser donne droit à une carte party : c'est ce qui tient les
+    // grandes tablées, où l'on subit bien plus qu'on ne joue
+    this.givePartyCard(player);
     this.pendingDraw = 0;
     this.pendingKind = null;
     this.lastWild4 = null;
@@ -589,6 +625,104 @@ export class UnoGame {
     this.lastWild4 = null;
     this.advance(1);
     return { ok: true };
+  }
+
+  /** Joue une carte party : elle s'ajoute au tour, elle ne le remplace pas. */
+  actParty(player, { cardId, targetId, giveId }) {
+    if (!this.isParty) return { ok: false, error: 'Les cartes party ne sont pas de la partie' };
+    if (player.id !== this.current.id) return { ok: false, error: 'Ce n\'est pas votre tour' };
+    if (player.partyPlayed) return { ok: false, error: 'Une seule carte party par tour' };
+    const idx = player.party.findIndex((c) => c.id === cardId);
+    if (idx === -1) return { ok: false, error: 'Carte party absente de votre main' };
+    const carte = player.party[idx];
+    const modele = partyById(carte.party);
+    if (!modele) return { ok: false, error: 'Carte party inconnue' };
+
+    let cible = null;
+    if (modele.cible) {
+      cible = this.byId(targetId);
+      if (!cible || cible.id === player.id || cible.out) {
+        return { ok: false, error: 'Choisissez un joueur' };
+      }
+    }
+    if (modele.id === 'cadeau') {
+      const don = player.hand.find((c) => c.id === giveId);
+      if (!don) return { ok: false, error: 'Choisissez la carte à offrir' };
+    }
+
+    player.party.splice(idx, 1);
+    player.partyPlayed = true;
+    this.applyPartyEffect(player, modele, { cible, giveId });
+    if (this.phase === 'playing') {
+      this.say('party', `${player.name} joue ${modele.name}.`, { playerId: player.id, party: modele.id });
+    }
+    return { ok: true };
+  }
+
+  applyPartyEffect(joueur, modele, { cible, giveId }) {
+    const vivants = this.players.filter((p) => !p.out);
+    switch (modele.id) {
+      case 'tempete':
+        for (const p of vivants) if (p.id !== joueur.id) this.giveCards(p, 1);
+        this.say('effect', 'Tempête : tout le monde pioche une carte.');
+        break;
+      case 'sniper':
+        this.giveCards(cible, 3);
+        this.say('effect', `Visée : ${cible.name} pioche trois cartes.`, { playerId: cible.id });
+        break;
+      case 'bouclier':
+        joueur.shield = true;
+        this.say('effect', `${joueur.name} lève un bouclier.`);
+        break;
+      case 'contagion': {
+        const n = this.players.length;
+        const gauche = this.players[((joueur.seat - 1) % n + n) % n];
+        const droite = this.players[(joueur.seat + 1) % n];
+        for (const v of new Set([gauche, droite])) if (v.id !== joueur.id) this.giveCards(v, 2);
+        this.say('effect', `Contagion : ${gauche.name} et ${droite.name} piochent deux cartes.`);
+        break;
+      }
+      case 'grandvent': {
+        const n = this.players.length;
+        const mains = this.players.map((p) => p.hand);
+        this.players.forEach((p, i) => {
+          const de = ((i - this.direction) % n + n) % n;
+          p.hand = mains[de];
+          p.mustCallUno = p.hand.length === 1 && this.settings.unoRule;
+        });
+        this.say('rotate', 'Grand vent : toutes les mains changent de propriétaire.');
+        const vide = this.players.find((p) => p.hand.length === 0 && !p.out);
+        if (vide) this.endRound(vide);
+        break;
+      }
+      case 'raccourci':
+        // le saut attend la fin du tour : sinon celui qui pose la carte
+        // perdrait la main avant d'avoir joué son coup normal
+        this.pendingSkip = (this.pendingSkip || 0) + 3;
+        this.say('effect', 'Raccourci : les trois prochains joueurs sauteront leur tour.');
+        break;
+      case 'cadeau': {
+        const i = joueur.hand.findIndex((c) => c.id === giveId);
+        const [don] = joueur.hand.splice(i, 1);
+        cible.hand.push(don);
+        if (cible.hand.length > 1) cible.mustCallUno = false;
+        joueur.mustCallUno = joueur.hand.length === 1 && this.settings.unoRule;
+        this.say('swap', `${joueur.name} offre une carte à ${cible.name}.`);
+        if (joueur.hand.length === 0) this.endRound(joueur);
+        break;
+      }
+      case 'echange': {
+        const tmp = joueur.hand;
+        joueur.hand = cible.hand;
+        cible.hand = tmp;
+        joueur.mustCallUno = joueur.hand.length === 1 && this.settings.unoRule;
+        cible.mustCallUno = cible.hand.length === 1 && this.settings.unoRule;
+        this.say('swap', `Troc : ${joueur.name} échange sa main avec ${cible.name}.`);
+        if (joueur.hand.length === 0) return this.endRound(joueur);
+        if (cible.hand.length === 0) return this.endRound(cible);
+        break;
+      }
+    }
   }
 
   // ------------------------------------------------------------- fin de partie
@@ -703,6 +837,7 @@ export class UnoGame {
       side: this.side,
       pack: this.settings.pack || 'classic',
       mercyLimit: this.isNoMercy ? MERCY_LIMIT : null,
+      party: this.isParty,
       top: this.publicCard(top),
       discardCount: this.discard.length,
       deckCount: this.deck ? this.deck.length : 0,
@@ -712,11 +847,16 @@ export class UnoGame {
         id: p.id, name: p.name, isBot: p.isBot, connected: p.connected,
         seat: p.seat, team: p.team, score: p.score,
         handCount: p.hand.length, mustCallUno: p.mustCallUno, out: !!p.out,
+        partyCount: this.isParty ? p.party.length : 0,
+        shield: this.isParty ? !!p.shield : false,
         // en pack Flip on voit l'autre face des cartes que les autres tiennent
         backs: (this.isFlip && p.id !== playerId)
           ? p.hand.map((c) => ({ ...face(c, this.otherSide()) })) : undefined,
       })),
       hand: me ? me.hand.map((c) => this.publicCard(c)) : [],
+      partyHand: (me && this.isParty) ? me.party.map((c) => ({ ...c })) : [],
+      canParty: !!(me && this.isParty && this.phase === 'playing'
+        && me.id === this.current.id && !me.partyPlayed && me.party.length),
       allyIds: allies.map((a) => a.id),
       allyHands: allies.length ? allyHands : null,
       legal: me ? this.legalCardsFor(me) : [],

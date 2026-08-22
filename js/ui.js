@@ -1,10 +1,11 @@
 // ui.js — rendu du DOM : table 3D, mains, salon, overlays
 import {
   COLOR_LABEL, isWild, colorsOf, cardCatalog,
-  PACKS, packById, MODES, modeById, modeId,
+  PACKS, packById, MODES, MODE_GROUPS, modeById, modeId,
   WIN_OPTIONS, winById, winId, BOT_LEVELS, botById,
-} from './deck.js?v=202608220202';
-import { qrSvg } from './qr.js?v=202608220202';
+} from './deck.js?v=202608220242';
+import { PARTY_CARDS, partyById } from './party.js?v=202608220242';
+import { qrSvg } from './qr.js?v=202608220242';
 
 /** Lien d'invitation d'une room. */
 export function joinUrl(code) {
@@ -155,11 +156,15 @@ const AV_COLORS = ['#ED1C24', '#0072BC', '#00A651', '#FFDE17'];
 
 export function renderLobby({ code, players, settings, isHost, maxPlayers = 4 }, handlers = {}) {
   const team = settings.mode === 'team';
-  $('code-value').textContent = code || '-----';
-  const qr = $('qr-box');
-  if (code && qr.dataset.code !== code) {
-    qr.dataset.code = code;
-    try { qr.innerHTML = qrSvg(joinUrl(code)); } catch (_) { qr.innerHTML = ''; }
+  // le code s'affiche à deux endroits : dans l'en-tête, et en grand en party
+  for (const [cible, boite] of [['code-value', 'qr-box'], ['code-value-party', 'qr-box-party']]) {
+    const val = $(cible), qr = $(boite);
+    if (!val || !qr) continue;
+    val.textContent = code || '-----';
+    if (code && qr.dataset.code !== code) {
+      qr.dataset.code = code;
+      try { qr.innerHTML = qrSvg(joinUrl(code)); } catch (_) { qr.innerHTML = ''; }
+    }
   }
   $('lobby-role').textContent = isHost
     ? 'Vous êtes l\'hôte — réglez la partie et partagez le code.'
@@ -231,6 +236,16 @@ export function renderLobby({ code, players, settings, isHost, maxPlayers = 4 },
   }
   for (const sw of document.querySelectorAll('.switch[data-setting]')) {
     sw.querySelector('input').checked = !!settings[sw.dataset.setting];
+  }
+  const party = settings.mode === 'party';
+  document.body.classList.toggle('lobby-party', party);
+  // en party, les réglages passent dans une fenêtre : la place sert au QR
+  const panneau = $('settings-panel'), fente = $('settings-slot');
+  if (panneau && fente) {
+    const bloc = $('settings');
+    if (party && bloc.parentElement !== fente) fente.appendChild(bloc);
+    else if (!party && bloc.parentElement === fente) panneau.appendChild(bloc);
+    panneau.hidden = party;
   }
   document.body.dataset.pack = settings.pack || 'classic';
   renderChoiceButtons(settings);
@@ -362,10 +377,18 @@ function choiceButton({ btn, name, note, mini, item, vis }) {
 }
 
 /** La galerie d'un réglage : une vignette par choix possible. */
-function choiceGallery({ overlay, grid, items, current, vis, cls, onPick }) {
+function choiceGallery({ overlay, grid, items, current, vis, cls, onPick, groups }) {
   const g = $(grid);
   g.innerHTML = '';
+  let famille = null;
   for (const item of items) {
+    if (groups && item.groupe !== famille) {
+      famille = item.groupe;
+      const titre = document.createElement('div');
+      titre.className = 'choice-group';
+      titre.textContent = famille;
+      g.appendChild(titre);
+    }
     const tuile = document.createElement('button');
     tuile.className = 'pack-tile ' + cls;
     tuile.classList.toggle('on', item.id === current);
@@ -387,9 +410,10 @@ function choiceGallery({ overlay, grid, items, current, vis, cls, onPick }) {
 
 /* ── les quatre réglages ── */
 export function showModes(settings, onPick) {
+  const ordonnes = MODE_GROUPS.flatMap((g) => MODES.filter((m) => m.groupe === g));
   choiceGallery({
-    overlay: 'overlay-modes', grid: 'mode-grid', items: MODES,
-    current: modeId(settings), vis: modeVis, cls: 'mode-tile', onPick,
+    overlay: 'overlay-modes', grid: 'mode-grid', items: ordonnes,
+    current: modeId(settings), vis: modeVis, cls: 'mode-tile', onPick, groups: true,
   });
 }
 export function hideModes() { $('overlay-modes').hidden = true; }
@@ -438,12 +462,38 @@ function renderCatalog(settings) {
   const list = $('card-list');
   if (!list) return;
   const entries = cardCatalog(settings);
-  const key = (settings.pack || 'classic') + ':' + entries.map((e) => e.name).join('|')
+  const key = (settings.mode || '') + ':' + (settings.pack || 'classic') + ':' + entries.map((e) => e.name).join('|')
     + ':' + entries.map((e) => e.desc.length).join('.');
-  $('cards-count').textContent = `${entries.length} types`;
+  const total = entries.length + (settings.mode === 'party' ? PARTY_CARDS.length : 0);
+  $('cards-count').textContent = `${total} types`;
   if (list.dataset.key === key) return;
   list.dataset.key = key;
   list.innerHTML = '';
+  // en mode party, les cartes party ouvrent la liste : ce sont les inédites
+  if (settings.mode === 'party') {
+    const sep = document.createElement('div');
+    sep.className = 'rl-side party';
+    sep.textContent = 'Cartes party — une seconde main, jamais échangée';
+    list.appendChild(sep);
+    for (const modele of PARTY_CARDS) {
+      const item = document.createElement('article');
+      item.className = 'rl-item';
+      const vis = document.createElement('div');
+      vis.className = 'rl-card';
+      vis.appendChild(partyCardEl(modele, 1));
+      const txt = document.createElement('div');
+      txt.className = 'rl-text';
+      txt.innerHTML = '<b></b><em></em>';
+      txt.querySelector('b').textContent = modele.name;
+      txt.querySelector('em').textContent = modele.tagline;
+      item.append(vis, txt);
+      list.appendChild(item);
+    }
+    const sep2 = document.createElement('div');
+    sep2.className = 'rl-side';
+    sep2.textContent = 'Cartes classiques';
+    list.appendChild(sep2);
+  }
   let cote = null;
   for (const e of entries) {
     if (settings.pack === 'flip' && e.side !== cote) {
@@ -501,7 +551,13 @@ export function resetSeats() { seatEls = new Map(); const h = $('seats'); if (h)
  * les autres se répartissent dans l'ordre du jeu sur l'arc qui va de sa
  * gauche à sa droite, en évitant le bas où sa propre main est tenue.
  */
-function seatPosition(rel, total) {
+function seatPosition(rel, total, tout = false) {
+  // en vue « écran », personne n'occupe le bas : les places font le tour complet
+  if (tout) {
+    const a = (rel * 360) / total;
+    const rad = (a * Math.PI) / 180;
+    return { x: 50 - 44 * Math.sin(rad), y: 50 + 40 * Math.cos(rad) };
+  }
   const n = total - 1;
   const a = n <= 1 ? 180 : 70 + ((rel - 1) * 220) / (n - 1);
   const rad = (a * Math.PI) / 180;
@@ -601,6 +657,7 @@ function renderSeats(state, handlers) {
     .sort((a, b) => a.rel - b.rel);
 
   host.dataset.n = String(n);
+  const ecran = !!state.party && !!state.spectator;
   const vus = new Set();
   autres.forEach(({ p, rel }) => {
     vus.add(p.id);
@@ -614,7 +671,7 @@ function renderSeats(state, handlers) {
       host.appendChild(box);
       seatEls.set(p.id, box);
     }
-    const { x, y } = seatPosition(rel, n);
+    const { x, y } = seatPosition(ecran ? rel - 1 : rel, ecran ? autres.length : n, ecran);
     box.style.left = x.toFixed(2) + '%';
     box.style.top = y.toFixed(2) + '%';
     renderOpponent(box.firstElementChild, p, state, handlers);
@@ -625,7 +682,11 @@ function renderSeats(state, handlers) {
 }
 
 function renderHand(state, handlers) {
-  const host = $('hand');
+  renderHandInto($('hand'), state, handlers);
+}
+
+function renderHandInto(host, state, handlers) {
+  if (!host) return;
   const ids = new Set(state.hand.map((c) => c.id));
   for (const [id, el] of handEls) {
     if (!ids.has(id)) { el.remove(); handEls.delete(id); }
@@ -718,10 +779,17 @@ export function renderGame(state, handlers = {}) {
   // HUD
   $('hud-round').textContent = 'Manche ' + state.roundNo;
   const n = state.settings.teamSize || 2;
-  $('hud-mode').textContent = state.settings.mode === 'team'
-    ? `Équipes ${n} v ${n}` : 'Chacun pour soi';
+  $('hud-mode').textContent = state.party
+    ? `Party · ${state.players.length} joueurs`
+    : (state.settings.mode === 'team' ? `Équipes ${n} v ${n}` : 'Chacun pour soi');
 
+  const party = !!state.party;
+  document.body.classList.toggle('is-party', party);
+  document.body.classList.toggle('is-screen', party && !!state.spectator);
+  document.body.classList.toggle('is-pad', party && !state.spectator);
   renderSeats(state, handlers);
+  renderPartyScreen(state);
+  renderPad(state, handlers);
 
   // centre
   renderDiscard(state);
@@ -768,6 +836,107 @@ export function renderGame(state, handlers = {}) {
   $('btn-challenge').hidden = !state.canChallenge;
 
 }
+
+/* ─────────────────── mode party : deux écrans, un seul jeu ───────────────────
+   L'hôte est la télévision : le plateau, les joueurs, les cartes en grand,
+   et aucune main. Chaque téléphone est une manette : la main de son joueur
+   et ses boutons, mais aucun plateau.                                      */
+
+/** Vignette d'une carte party. */
+export function partyCardEl(modele, count) {
+  const el = document.createElement('span');
+  el.className = 'pc t-' + modele.teinte;
+  el.innerHTML = '<i></i><b></b>';
+  el.querySelector('i').textContent = modele.icon;
+  el.querySelector('b').textContent = modele.name;
+  if (count > 1) {
+    const n = document.createElement('u');
+    n.textContent = '×' + count;
+    el.appendChild(n);
+  }
+  return el;
+}
+
+/** L'écran de l'hôte : qui joue, et où en est la partie. */
+function renderPartyScreen(state) {
+  const hud = $('party-hud');
+  if (!hud) return;
+  const actif = state.players.find((p) => p.id === state.turnId);
+  hud.hidden = !state.party || !state.spectator;
+  if (hud.hidden) return;
+  $('ph-name').textContent = actif ? actif.name : '—';
+  const restants = state.players.filter((p) => !p.out).length;
+  $('ph-sub').textContent = actif
+    ? `${actif.handCount} carte${actif.handCount > 1 ? 's' : ''} · ${restants} joueurs en lice`
+    : '';
+}
+
+/** La manette : la main du joueur et ses commandes, sans plateau. */
+function renderPad(state, handlers) {
+  const pad = $('pad');
+  if (!pad) return;
+  const moi = state.players.find((p) => p.id === state.you);
+  pad.hidden = !state.party || !moi;
+  if (pad.hidden) return;
+
+  const av = $('pad-avatar');
+  av.textContent = (moi.name || '?').slice(0, 1).toUpperCase();
+  av.style.background = AV_COLORS[moi.seat % 4];
+  av.style.color = moi.seat % 4 === 3 ? '#2E2400' : '#fff';
+  $('pad-name').textContent = moi.name;
+  $('pad-cards').textContent = moi.handCount;
+  $('pad-score').textContent = moi.score;
+
+  const monTour = state.turnId === state.you && state.phase === 'playing';
+  const flag = $('pad-turn');
+  flag.textContent = monTour ? 'À vous de jouer' : 'En attente';
+  flag.classList.toggle('on', monTour);
+  pad.classList.toggle('my-turn', monTour);
+
+  renderHandInto($('pad-hand'), state, handlers);
+
+  $('pad-draw').disabled = !(state.canDraw || (monTour && state.pendingDraw > 0));
+  $('pad-draw').textContent = monTour && state.pendingDraw > 0 ? `Piocher ${state.pendingDraw}` : 'Piocher';
+  $('pad-pass').hidden = !state.canPass;
+  $('pad-uno').disabled = !(state.canUno || (state.settings.unoRule && state.hand.length === 2 && monTour));
+  const pty = $('pad-party');
+  pty.hidden = !state.partyHand || !state.partyHand.length;
+  pty.disabled = !state.canParty;
+  $('pad-party-n').textContent = state.partyHand ? state.partyHand.length : 0;
+}
+
+/** Choix d'une carte party : la galerie de ce qu'on a en réserve. */
+export function showPartyHand(state, onPick) {
+  const grid = $('party-grid');
+  grid.innerHTML = '';
+  const parType = new Map();
+  for (const c of state.partyHand) {
+    if (!parType.has(c.party)) parType.set(c.party, []);
+    parType.get(c.party).push(c);
+  }
+  for (const [type, cartes] of parType) {
+    const modele = partyById(type);
+    if (!modele) continue;
+    const tuile = document.createElement('button');
+    tuile.className = 'party-tile t-' + modele.teinte;
+    tuile.dataset.party = type;
+    tuile.dataset.cardId = cartes[0].id;
+    const vis = document.createElement('span');
+    vis.className = 'pt-party';
+    vis.appendChild(partyCardEl(modele, cartes.length));
+    const txt = document.createElement('span');
+    txt.className = 'pt-txt';
+    txt.innerHTML = '<b></b><em></em>';
+    txt.querySelector('b').textContent = modele.name;
+    txt.querySelector('em').textContent = modele.tagline;
+    tuile.append(vis, txt);
+    tuile.disabled = !state.canParty;
+    tuile.onclick = () => { onPick(cartes[0], modele); hidePartyHand(); };
+    grid.appendChild(tuile);
+  }
+  $('overlay-party').hidden = false;
+}
+export function hidePartyHand() { $('overlay-party').hidden = true; }
 
 /* ───────────────────────────── overlays ───────────────────────────── */
 function overlayPick(overlayId, wire) {
@@ -827,6 +996,35 @@ function groupTag(state, p) {
     return ` <span class="tag ${p.team === 0 ? 'teamA' : 'teamB'}">${p.team === 0 ? 'A' : 'B'}</span>`;
   }
   return '';
+}
+
+/** Choix d'une carte de sa main, pour l'offrir. */
+export function pickGift(state) {
+  return overlayPick('overlay-target', (done) => {
+    const box = $('target-picker');
+    box.innerHTML = '';
+    const titre = $('overlay-target').querySelector('h3');
+    const ancien = titre.textContent;
+    titre.textContent = 'Quelle carte offrez-vous ?';
+    for (const c of state.hand) {
+      const b = document.createElement('button');
+      b.className = 'gift';
+      b.appendChild(cardEl(c));
+      const nom = document.createElement('span');
+      nom.textContent = cardLabelOf(c);
+      b.appendChild(nom);
+      b.onclick = () => { titre.textContent = ancien; done(c.id); };
+      box.appendChild(b);
+    }
+    return () => { titre.textContent = ancien; box.innerHTML = ''; };
+  });
+}
+
+function cardLabelOf(c) {
+  const v = { skip: 'Passe', reverse: 'Sens', draw2: '+2', draw5: '+5', draw10: '+10',
+    wild: 'Joker', wild4: '+4', wildDraw: 'Joker pioche', flip: 'Retournement',
+    skipAll: 'Tout le monde passe', discardAll: 'Défausse totale', reverseDraw4: 'Sens +4' }[c.value] || c.value;
+  return isWild(c) ? v : `${v} ${(COLOR_LABEL[c.color] || c.color).toLowerCase()}`;
 }
 
 export function showRoundEnd(state) {
