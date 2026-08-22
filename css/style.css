@@ -1937,3 +1937,110 @@ body.is-pad .flip-flash { display: none !important; }
   transform: translateY(10px) scale(.94);
 }
 .hand .card.dim:hover, .pad-hand .card.dim:hover { opacity: .6; }
+
+/* ══════════════════════ le compte à rebours ══════════════════════
+   Il n'apparaît que dans les cinq dernières secondes : un chrono qui
+   tourne en permanence presse pour rien.                            */
+.countdown {
+  position: relative; display: grid; place-items: center;
+  width: 84px; height: 84px; flex: none;
+}
+.countdown[hidden] { display: none; }
+.countdown svg { position: absolute; inset: 0; width: 100%; height: 100%; rotate: -90deg; }
+.countdown circle { fill: none; stroke-width: 9; }
+.cd-bg { stroke: rgba(255,255,255,.12); }
+.cd-arc {
+  stroke: var(--gold); stroke-linecap: round;
+  stroke-dasharray: 276.5;
+  stroke-dashoffset: calc(276.5 * (1 - var(--part, 1)));
+  transition: stroke-dashoffset .1s linear;
+}
+.countdown b {
+  position: relative; font-family: var(--display); font-style: italic;
+  font-size: 34px; color: var(--gold); line-height: 1;
+}
+.countdown.urgent .cd-arc { stroke: var(--red); }
+.countdown.urgent b { color: #FF6B62; }
+.countdown.urgent { animation: pulse .5s ease-in-out infinite; }
+.countdown.small { width: 40px; height: 40px; }
+.countdown.small circle { stroke-width: 11; }
+.countdown.small b { font-size: 17px; }
+
+/* sur l'écran de l'hôte, il accompagne le nom du joueur */
+.party-hud { grid-auto-flow: column; align-items: center; gap: 22px; }
+
+/* ══════════════════════ le téléphone couché ══════════════════════
+   En mode party le téléphone reste à l'horizontale : la hauteur devient
+   la ressource rare, et tous les écrans doivent s'y plier.           */
+@media (max-height: 480px) and (orientation: landscape) {
+  /* ─── accueil ─── */
+  .home-stage { padding: 12px 16px 16px; }
+  .hero { padding-top: 0; }
+  .hero-fan { display: none; }
+  .wordmark { width: min(210px, 30vw); }
+  .tagline { font-size: 12px; margin: 2px 0 10px; }
+  .home-card { width: min(440px, 76vw); padding: 14px 16px 14px; border-radius: 16px; }
+  .field { margin-bottom: 10px; }
+  .field span { font-size: 10.5px; margin-bottom: 4px; }
+  .field input, .code-input { padding: 9px 12px; font-size: 14px; }
+  .or { margin: 10px 0; font-size: 10px; }
+  .btn-big { padding: 11px 20px; font-size: 15px; }
+  .scan-btn { margin-top: 8px; }
+  .home-facts { display: none; }
+
+  /* ─── salon ─── */
+  .lobby-wrap { padding: 10px 14px 8px; }
+  .lobby-head { margin-bottom: 10px; }
+  .lobby-head h2 { font-size: 20px; }
+  .sub { font-size: 11.5px; }
+  /* couché, l'écran est trop bas pour un pied flottant : il reprend sa
+     place dans le flux et toute la page défile d'un bloc */
+  .lobby-grid { gap: 10px; align-items: start; }
+  .panel { padding: 12px 14px; border-radius: 14px; }
+  .lobby-foot { position: static; background: none; margin: 10px 0 0; padding: 0; }
+  .panel h3 { font-size: 10.5px; margin-bottom: 9px; }
+  .players { gap: 6px; max-height: none; }
+  .players li { padding: 7px 10px; font-size: 13px; }
+  .avatar { width: 26px; height: 26px; font-size: 12px; }
+  .lobby-foot { margin: 10px -14px -8px; padding: 8px 14px 10px; }
+  .lobby-foot .btn-big { padding: 10px 16px; font-size: 14px; }
+  body.lobby-party .code-value { font-size: clamp(26px, 6vh, 40px); margin: 4px 0 8px; }
+  body.lobby-party .qr { width: min(150px, 30vh); height: min(150px, 30vh); }
+  body.lobby-party .qr-hint { font-size: 10.5px; margin-bottom: 8px; }
+  body.lobby-party .code-box { padding: 12px 14px 14px; }
+
+  /* ─── fenêtres ─── */
+  .modal { padding: 14px 16px; border-radius: 16px; max-height: 92vh; overflow-y: auto; }
+  .modal h3 { font-size: 16px; margin-bottom: 10px; }
+  .modal.wide, .packs-modal, .rules-modal, .party-modal, .settings-modal { min-width: 0; width: 94vw; }
+  .pack-grid, .rule-grid, .party-grid { max-height: 52vh; gap: 9px; }
+  .pack-grid { grid-template-columns: repeat(3, 1fr); }
+  .pack-grid.three { grid-template-columns: repeat(3, 1fr); }
+  .pt-vis { height: 68px; }
+  .pt-txt b { font-size: 13px; }
+  .pt-txt em { font-size: 10.5px; }
+  .rule-grid { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
+  .rl-card { --cw: 40px; --ch: 60px; }
+  .rl-text b { font-size: 12px; }
+  .rl-text em { font-size: 10.5px; }
+  .party-grid { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
+  .party-tile { padding: 9px 8px; }
+  .pc { width: 62px; padding: 8px 6px 7px; }
+  .pc i { font-size: 20px; }
+  .pc b { font-size: 9px; }
+  .color-picker { grid-template-columns: repeat(4, 1fr); gap: 8px; }
+  .col { height: 56px; border-radius: 12px; }
+  .target-picker { grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); display: grid; }
+  .target-picker button { padding: 8px 10px; font-size: 13px; }
+  .scoreboard th, .scoreboard td { padding: 5px 6px; font-size: 12px; }
+  .modal-note { font-size: 11.5px; margin-bottom: 10px; }
+  .trophy { font-size: 34px; }
+  .winner-line { font-size: 14px; margin-bottom: 10px; }
+  .keylist { display: none; }
+
+  /* ─── la porte du paysage n'a plus lieu d'être une fois couché ─── */
+  .rg-inner { gap: 9px; }
+  .rg-phone { width: 52px; height: 86px; }
+  .rg-inner b { font-size: 17px; }
+  .rg-inner em { font-size: 12px; }
+}

@@ -3,9 +3,9 @@ import {
   COLOR_LABEL, isWild, colorsOf, cardCatalog,
   PACKS, packById, MODES, MODE_GROUPS, modesOf, folderOf, modeById, modeId,
   WIN_OPTIONS, winById, winId, BOT_LEVELS, botById,
-} from './deck.js?v=202608220257';
-import { PARTY_CARDS, partyById } from './party.js?v=202608220257';
-import { qrSvg } from './qr.js?v=202608220257';
+} from './deck.js?v=202608220310';
+import { PARTY_CARDS, partyById } from './party.js?v=202608220310';
+import { qrSvg } from './qr.js?v=202608220310';
 
 /** Lien d'invitation d'une room. */
 export function joinUrl(code) {
@@ -821,6 +821,7 @@ export function renderGame(state, handlers = {}) {
   renderSeats(state, handlers);
   renderPartyScreen(state);
   renderPad(state, handlers);
+  setTurnDeadline(state.party && state.phase === 'playing' ? state.turnLeft : null);
 
   // centre
   renderDiscard(state);
@@ -886,6 +887,34 @@ export function partyCardEl(modele, count) {
     el.appendChild(n);
   }
   return el;
+}
+
+/* Le compte à rebours ne s'affiche que dans les dernières secondes : avant,
+   il ne ferait que presser inutilement.                                    */
+const CD_SEUIL = 5000;
+let cdFin = 0, cdBoucle = null;
+
+/** Note l'échéance transmise par l'hôte, mesurée sur l'horloge locale. */
+export function setTurnDeadline(reste) {
+  cdFin = (reste === null || reste === undefined) ? 0 : Date.now() + reste;
+  if (!cdBoucle) cdBoucle = setInterval(peindreCompteur, 100);
+  peindreCompteur();
+}
+
+function peindreCompteur() {
+  const reste = cdFin ? cdFin - Date.now() : 0;
+  const montre = reste > 0 && reste <= CD_SEUIL;
+  for (const id of ['cd-screen', 'cd-pad']) {
+    const el = $(id);
+    if (!el) continue;
+    el.hidden = !montre;
+    if (!montre) continue;
+    const secondes = Math.ceil(reste / 1000);
+    el.querySelector('b').textContent = String(secondes);
+    const arc = el.querySelector('.cd-arc');
+    if (arc) arc.style.setProperty('--part', (reste / CD_SEUIL).toFixed(3));
+    el.classList.toggle('urgent', reste <= 2000);
+  }
 }
 
 /** L'écran de l'hôte : qui joue, et où en est la partie. */

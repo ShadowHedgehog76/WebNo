@@ -33,7 +33,10 @@ les navigateurs se parlent directement en WebRTC (via [PeerJS](https://peerjs.co
     l'hôte est la table** (plateau, joueurs tout autour, cartes en grand, aucune main visible) et
     **chaque téléphone est une manette** (sa main, ses boutons, aucun plateau). Seuls les
     téléphones peuvent rejoindre ; les deux écrans passent en plein écran, et le téléphone
-    réclame le paysage tant qu'il n'y est pas — dans le salon comme en partie. Le salon change
+    réclame le paysage tant qu'il n'y est pas — dans le salon comme en partie, et tous les écrans
+    sont taillés pour cette orientation. Chaque joueur dispose de **quinze secondes** pour jouer :
+    dans les cinq dernières, un compte à rebours s'affiche sur son téléphone comme sur l'écran de
+    l'hôte, et le temps écoulé fait piocher d'office. Le salon change
     d'allure : les joueurs à gauche, le code et le QR en grand à droite pour être scannés de loin,
     les réglages derrière un bouton. Chacun reçoit en plus une **main party** — des cartes
     d'action pensées pour les grandes tablées (Tempête, Visée, Bouclier, Contagion, Grand vent,

@@ -2,8 +2,8 @@
 import {
   buildDeck, buildFlipDeck, buildNoMercyDeck, decksNeeded, shuffle, isWild, isNumber,
   cardPoints, cardLabel, face, colorsOf, COLORS, COLOR_LABEL, DRAW_AMOUNT, isDrawCard,
-} from './deck.js?v=202608220257';
-import { buildPartyDeck, partyById, PARTY_START, PARTY_MAX, PARTY_SIZE } from './party.js?v=202608220257';
+} from './deck.js?v=202608220310';
+import { buildPartyDeck, partyById, PARTY_START, PARTY_MAX, PARTY_SIZE } from './party.js?v=202608220310';
 
 /** Au-delà de ce nombre de cartes, No Mercy élimine le joueur de la manche. */
 export const MERCY_LIMIT = 25;
@@ -20,6 +20,7 @@ export const DEFAULT_SETTINGS = {
   targetScore: 500,
   teamSize: 2,             // mode équipes : 2v2, 3v3 ou 4v4
   partySize: 12,           // mode party : de 8 à 32 joueurs
+  turnSeconds: 15,         // mode party : temps de réflexion, 0 pour l'ôter
   botLevel: 'normal',      // 'easy' | 'normal' | 'hard'
   startCards: 7,
 };

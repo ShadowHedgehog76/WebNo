@@ -1,10 +1,10 @@
 // app.js — orchestration : accueil, salon, boucle hôte (moteur + IA), client
-import { UnoGame, DEFAULT_SETTINGS } from './engine.js?v=202608220257';
-import { botDecide, botJumpIn, botCallout, botDelay, botProfile } from './bot.js?v=202608220257';
-import { HostNet, ClientNet, normalizeCode, codeFromScan } from './net.js?v=202608220257';
-import { isWild } from './deck.js?v=202608220257';
-import * as ui from './ui.js?v=202608220257';
-import * as audio from './audio.js?v=202608220257';
+import { UnoGame, DEFAULT_SETTINGS } from './engine.js?v=202608220310';
+import { botDecide, botJumpIn, botCallout, botDelay, botProfile } from './bot.js?v=202608220310';
+import { HostNet, ClientNet, normalizeCode, codeFromScan } from './net.js?v=202608220310';
+import { isWild } from './deck.js?v=202608220310';
+import * as ui from './ui.js?v=202608220310';
+import * as audio from './audio.js?v=202608220310';
 
 const $ = (id) => document.getElementById(id);
 const BOT_NAMES = ['Léa', 'Max', 'Zoé', 'Nino', 'Iris', 'Sacha', 'Milo', 'Nora', 'Tao', 'Lila',
@@ -40,6 +40,8 @@ class Host {
     this.players = [{ id: HOST_ID, name, isHost: true, isBot: false, peerId: null }];
     this.game = null;
     this.unoSince = new Map();
+    this.turnEnd = 0;          // échéance du tour en cours (party)
+    this.turnFor = null;       // à qui appartient ce tour
     this.jumpTried = new Set();
     this.jumpToken = 0;
     this.pump = null;
@@ -295,9 +297,40 @@ class Host {
     this.afterChange();
   }
 
+  /** Durée de réflexion accordée, en millisecondes (0 = pas de limite). */
+  turnLimit() {
+    const s = this.settings;
+    return s.mode === 'party' ? Math.max(0, (s.turnSeconds ?? 15) * 1000) : 0;
+  }
+
+  /** Relance le chronomètre quand la main change de joueur. */
+  syncTurnClock() {
+    const g = this.game;
+    const limite = this.turnLimit();
+    if (!g || g.phase !== 'playing' || !limite) { this.turnEnd = 0; this.turnFor = null; return; }
+    const cur = g.current;
+    if (!cur || this.turnFor === cur.id) return;
+    this.turnFor = cur.id;
+    this.turnEnd = Date.now() + limite;
+  }
+
+  /** Le temps écoulé fait piocher d'office : la partie ne s'enlise pas. */
+  checkTurnClock() {
+    const g = this.game;
+    if (!g || g.phase !== 'playing' || !this.turnEnd) return;
+    if (Date.now() < this.turnEnd) return;
+    const cur = g.current;
+    this.turnEnd = 0;
+    let r = g.handle(cur.id, { type: 'draw' });
+    if (!r.ok) r = g.handle(cur.id, { type: 'pass' });
+    g.say('timeout', `${cur.name} a laissé filer le temps : il pioche.`, { playerId: cur.id });
+    this.afterChange();
+  }
+
   afterChange() {
     const g = this.game;
     if (!g) return;
+    this.syncTurnClock();
     // horodatage des oublis de UNO (délai de grâce avant dénonciation par les bots)
     for (const p of g.players) {
       if (p.mustCallUno && !this.unoSince.has(p.id)) this.unoSince.set(p.id, Date.now());
@@ -307,14 +340,18 @@ class Host {
       this.jumpToken = g.discard.length;
       this.jumpTried.clear();
     }
+    // le temps restant part avec l'état : chaque appareil décompte ensuite
+    // depuis sa propre horloge, ce qui évite tout écart de pendule
+    const reste = this.turnEnd ? Math.max(0, this.turnEnd - Date.now()) : null;
     for (const p of this.players) {
-      if (p.peerId) this.net.send(p.peerId, { t: 'state', state: g.stateFor(p.id) });
+      if (p.peerId) this.net.send(p.peerId, { t: 'state', state: { ...g.stateFor(p.id), turnLeft: reste } });
     }
-    applyState(g.stateFor(HOST_ID));
+    applyState({ ...g.stateFor(HOST_ID), turnLeft: reste });
   }
 
   /** Boucle IA. */
   tick() {
+    this.checkTurnClock();
     const g = this.game;
     if (!g || g.phase !== 'playing') return;
     const now = Date.now();
@@ -475,7 +512,7 @@ const EVENT_SFX = {
   play: 'play', draw: 'draw', penalty: 'penalty', callout: 'penalty',
   uno: 'uno', swap: 'swap', rotate: 'rotate', jump: 'jump',
   challenge: 'penalty', round: 'shuffle', win: 'win', flip: 'rotate',
-  launcher: 'shuffle', out: 'lose', party: 'swap', shield: 'uno',
+  launcher: 'shuffle', out: 'lose', party: 'swap', shield: 'uno', timeout: 'error',
 };
 
 function applyState(s) {
