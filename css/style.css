@@ -1567,3 +1567,101 @@ body[data-pack="flip"] .fc::after,
 .pk-mini .bt-bars { height: 11px; }
 .pk-mini .bt-bars i { width: 5px; }
 .bot-tile .pt-vis { background: radial-gradient(60% 70% at 50% 40%, #1B2233, #080B12); }
+
+/* ══════════════════════ des boutons vivants ══════════════════════
+   Le principe : presque rien au repos, tout se réveille au survol. Seuls
+   les boutons qui appellent une action respirent en continu.           */
+
+/* ─── un reflet balaie le bouton au survol ─── */
+.btn { position: relative; overflow: hidden; isolation: isolate; }
+.btn::after {
+  content: ''; position: absolute; inset: 0; z-index: -1; pointer-events: none;
+  background: linear-gradient(100deg, transparent 30%, rgba(255,255,255,.4) 50%, transparent 70%);
+  translate: -130% 0; opacity: 0;
+}
+.btn:hover:not(:disabled)::after { animation: sheen .75s ease-out; }
+@keyframes sheen {
+  from { translate: -130% 0; opacity: 0; }
+  20%  { opacity: 1; }
+  to   { translate: 130% 0; opacity: 0; }
+}
+.btn:hover:not(:disabled) { translate: 0 -2px; }
+.btn:active:not(:disabled) { translate: 0 0; }
+
+/* ─── le bouton principal appelle discrètement l'attention ───
+   Le halo vit dans un calque à part dont on n'anime que l'opacité : animer
+   l'ombre elle-même forcerait un repaint à chaque image.               */
+.btn-green:not(:disabled), .btn-red:not(:disabled) { position: relative; }
+.btn-green:not(:disabled)::before, .btn-red:not(:disabled)::before {
+  content: ''; position: absolute; inset: -3px; z-index: -1; border-radius: inherit;
+  box-shadow: 0 0 22px 2px currentColor; opacity: 0; pointer-events: none;
+  animation: callSoft 3.4s ease-in-out infinite;
+}
+@keyframes callSoft { 0%, 100% { opacity: 0; } 50% { opacity: .38; } }
+.btn-green:hover:not(:disabled)::before, .btn-red:hover:not(:disabled)::before { animation-play-state: paused; }
+
+/* ─── les boutons de réglage : l'aperçu s'anime au survol ─── */
+.pack-btn { position: relative; overflow: hidden; }
+.pack-btn::after {
+  content: ''; position: absolute; inset: 0; pointer-events: none;
+  background: linear-gradient(100deg, transparent 34%, rgba(255,255,255,.09) 50%, transparent 66%);
+  translate: -130% 0;
+}
+.pack-btn:hover::after { animation: sheen 1s ease-out; }
+.pack-btn:hover { translate: 0 -2px; }
+.pk-go { transition: scale .18s var(--ease), background .18s; }
+.pack-btn:hover .pk-go { scale: 1.06; background: rgba(255,201,60,.24); }
+
+/* les cartes du paquet s'écartent comme une main qu'on ouvre */
+.pk-fan .card { transition: transform .35s var(--ease); }
+.pack-btn:hover .pk-fan .card,
+.pack-tile:hover .pk-fan .card {
+  transform: translate(-50%, -50%) rotate(calc(var(--i) * 15deg)) translateX(calc(var(--i) * 30%));
+}
+/* et la vignette entière prend un peu de relief */
+.pack-tile .pt-vis > * { transition: scale .3s var(--ease); }
+.pack-tile:hover .pt-vis > * { scale: 1.05; }
+
+/* la table du mode pivote légèrement */
+.md-felt { transition: transform .4s var(--ease); }
+.pack-btn:hover .md-felt, .pack-tile:hover .md-felt { transform: rotateX(26deg); }
+/* les mains se rapprochent du plateau, comme si on jouait */
+.md-seat { transition: scale .35s var(--ease); }
+.pack-btn:hover .md-seat, .pack-tile:hover .md-seat { scale: 1.08; }
+/* la défausse clignote doucement : la partie est en cours */
+.md-discard { animation: discardPulse 2.6s ease-in-out infinite; }
+@keyframes discardPulse { 50% { opacity: .55; } }
+
+/* la jauge de victoire se remplit au survol */
+.wn-gauge span { transition: scale .5s var(--ease); transform-origin: left center; }
+.pack-btn:hover .wn-gauge span, .pack-tile:hover .wn-gauge span { scale: 1.12 1; }
+.wn-vis b { transition: scale .3s var(--ease); }
+.pack-btn:hover .wn-vis b, .pack-tile:hover .wn-vis b { scale: 1.08; }
+
+/* le robot cligne des yeux, et ses barres montent au survol */
+.bt-face i { animation: blink 5s infinite; }
+@keyframes blink { 0%, 92%, 100% { scale: 1 1; } 95% { scale: 1 .12; } }
+.bt-face i:nth-child(2) { animation-delay: .12s; }
+.bt-bars i { transition: scale .3s var(--ease); transform-origin: bottom; }
+.pack-btn:hover .bt-bars i.on, .pack-tile:hover .bt-bars i.on { scale: 1 1.22; }
+.bt-face { transition: rotate .35s var(--ease); }
+.pack-btn:hover .bt-face, .pack-tile:hover .bt-face { rotate: -5deg; }
+
+/* ─── les cartes du catalogue s'inclinent ─── */
+.rl-card .card { transition: transform .3s var(--ease); }
+.rl-item:hover .rl-card .card { transform: rotate(-6deg) scale(1.08); }
+
+/* ─── petites touches ailleurs ─── */
+.sound-btn svg { transition: scale .2s var(--ease); }
+.sound-btn:hover svg { scale: 1.14; }
+.kick { transition: scale .16s var(--ease); }
+.kick:hover { scale: 1.2; }
+.col { transition: transform .18s var(--ease), box-shadow .2s; }
+.col:hover { transform: scale(1.1) rotate(-4deg); }
+.col:active { transform: scale(.96); }
+.target-picker button { transition: transform .16s var(--ease), background .16s; }
+
+@media (prefers-reduced-motion: reduce) {
+  .btn::after, .pack-btn::after { display: none; }
+  .btn-green::before, .btn-red::before, .bt-face i, .md-discard { animation: none !important; }
+}

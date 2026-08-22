@@ -3,8 +3,8 @@ import {
   COLOR_LABEL, isWild, colorsOf, cardCatalog,
   PACKS, packById, MODES, modeById, modeId,
   WIN_OPTIONS, winById, winId, BOT_LEVELS, botById,
-} from './deck.js?v=202608220154';
-import { qrSvg } from './qr.js?v=202608220154';
+} from './deck.js?v=202608220202';
+import { qrSvg } from './qr.js?v=202608220202';
 
 /** Lien d'invitation d'une room. */
 export function joinUrl(code) {
