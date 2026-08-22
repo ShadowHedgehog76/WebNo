@@ -2,8 +2,8 @@
 import {
   buildDeck, buildFlipDeck, buildNoMercyDeck, decksNeeded, shuffle, isWild, isNumber,
   cardPoints, cardLabel, face, colorsOf, COLORS, COLOR_LABEL, DRAW_AMOUNT, isDrawCard,
-} from './deck.js?v=202608220310';
-import { buildPartyDeck, partyById, PARTY_START, PARTY_MAX, PARTY_SIZE } from './party.js?v=202608220310';
+} from './deck.js?v=202608220315';
+import { buildPartyDeck, partyById, PARTY_START, PARTY_MAX, PARTY_SIZE } from './party.js?v=202608220315';
 
 /** Au-delà de ce nombre de cartes, No Mercy élimine le joueur de la manche. */
 export const MERCY_LIMIT = 25;

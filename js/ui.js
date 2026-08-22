@@ -3,9 +3,9 @@ import {
   COLOR_LABEL, isWild, colorsOf, cardCatalog,
   PACKS, packById, MODES, MODE_GROUPS, modesOf, folderOf, modeById, modeId,
   WIN_OPTIONS, winById, winId, BOT_LEVELS, botById,
-} from './deck.js?v=202608220310';
-import { PARTY_CARDS, partyById } from './party.js?v=202608220310';
-import { qrSvg } from './qr.js?v=202608220310';
+} from './deck.js?v=202608220315';
+import { PARTY_CARDS, partyById } from './party.js?v=202608220315';
+import { qrSvg } from './qr.js?v=202608220315';
 
 /** Lien d'invitation d'une room. */
 export function joinUrl(code) {
@@ -156,6 +156,7 @@ const AV_COLORS = ['#ED1C24', '#0072BC', '#00A651', '#FFDE17'];
 
 export function renderLobby({ code, players, settings, isHost, maxPlayers = 4 }, handlers = {}) {
   const team = settings.mode === 'team';
+  const party = settings.mode === 'party';
   // le code s'affiche à deux endroits : dans l'en-tête, et en grand en party
   for (const [cible, boite] of [['code-value', 'qr-box'], ['code-value-party', 'qr-box-party']]) {
     const val = $(cible), qr = $(boite);
@@ -167,7 +168,9 @@ export function renderLobby({ code, players, settings, isHost, maxPlayers = 4 },
     }
   }
   $('lobby-role').textContent = isHost
-    ? 'Vous êtes l\'hôte — réglez la partie et partagez le code.'
+    ? (party
+      ? 'Mode party : votre écran est la table. Les joueurs rejoignent depuis leur téléphone.'
+      : 'Vous êtes l\'hôte — réglez la partie et partagez le code.')
     : 'Vous avez rejoint la partie. En attente de l\'hôte…';
   $('player-count').textContent = `${players.length}/${maxPlayers}`;
   $('lobby-players').classList.toggle('compact', maxPlayers > 6);
@@ -237,7 +240,6 @@ export function renderLobby({ code, players, settings, isHost, maxPlayers = 4 },
   for (const sw of document.querySelectorAll('.switch[data-setting]')) {
     sw.querySelector('input').checked = !!settings[sw.dataset.setting];
   }
-  const party = settings.mode === 'party';
   document.body.classList.toggle('lobby-party', party);
   // en party, les réglages passent dans une fenêtre : la place sert au QR
   const panneau = $('settings-panel'), fente = $('settings-slot');

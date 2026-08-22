@@ -260,8 +260,8 @@ export const MODES = [
   },
   {
     id: 'party', groupe: 'extra', mode: 'party', name: 'Party',
-    tagline: 'De 8 à 32 joueurs. L\'écran de l\'hôte devient la table, chaque téléphone '
-      + 'devient une main. Avec des cartes party pour semer le chaos.',
+    tagline: 'De 8 à 32 joueurs, téléphone obligatoire. L\'écran de l\'hôte devient la table, '
+      + 'chaque téléphone devient une main. Avec des cartes party pour semer le chaos.',
     seats: 12, teams: false, party: true,
   },
 ];

@@ -1,10 +1,10 @@
 // app.js — orchestration : accueil, salon, boucle hôte (moteur + IA), client
-import { UnoGame, DEFAULT_SETTINGS } from './engine.js?v=202608220310';
-import { botDecide, botJumpIn, botCallout, botDelay, botProfile } from './bot.js?v=202608220310';
-import { HostNet, ClientNet, normalizeCode, codeFromScan } from './net.js?v=202608220310';
-import { isWild } from './deck.js?v=202608220310';
-import * as ui from './ui.js?v=202608220310';
-import * as audio from './audio.js?v=202608220310';
+import { UnoGame, DEFAULT_SETTINGS } from './engine.js?v=202608220315';
+import { botDecide, botJumpIn, botCallout, botDelay, botProfile } from './bot.js?v=202608220315';
+import { HostNet, ClientNet, normalizeCode, codeFromScan } from './net.js?v=202608220315';
+import { isWild } from './deck.js?v=202608220315';
+import * as ui from './ui.js?v=202608220315';
+import * as audio from './audio.js?v=202608220315';
 
 const $ = (id) => document.getElementById(id);
 const BOT_NAMES = ['Léa', 'Max', 'Zoé', 'Nino', 'Iris', 'Sacha', 'Milo', 'Nora', 'Tao', 'Lila',
@@ -321,9 +321,13 @@ class Host {
     if (Date.now() < this.turnEnd) return;
     const cur = g.current;
     this.turnEnd = 0;
-    let r = g.handle(cur.id, { type: 'draw' });
-    if (!r.ok) r = g.handle(cur.id, { type: 'pass' });
-    g.say('timeout', `${cur.name} a laissé filer le temps : il pioche.`, { playerId: cur.id });
+    g.handle(cur.id, { type: 'draw' });
+    // piocher une carte jouable laisse la main : le temps écoulé, on passe
+    // quand même, sans quoi le tour resterait bloqué sur un joueur absent
+    if (g.phase === 'playing' && g.current.id === cur.id) {
+      g.handle(cur.id, { type: 'pass' });
+    }
+    g.say('timeout', `${cur.name} a laissé filer le temps : il pioche et passe.`, { playerId: cur.id });
     this.afterChange();
   }
 

@@ -2044,3 +2044,17 @@ body.is-pad .flip-flash { display: none !important; }
   .rg-inner b { font-size: 17px; }
   .rg-inner em { font-size: 12px; }
 }
+
+/* ══════════════════════ « téléphones seulement » ══════════════════════ */
+.phone-only {
+  display: flex; align-items: flex-start; gap: 10px;
+  margin: -4px 0 14px; padding: 10px 13px;
+  background: rgba(255,201,60,.09); border: 1px solid rgba(255,201,60,.28);
+  border-radius: 12px; font-size: 12.5px; line-height: 1.45; color: #D8DEEA;
+}
+.phone-only svg { width: 20px; height: 20px; flex: none; color: var(--gold); margin-top: 1px; }
+.phone-only b { color: var(--gold); font-weight: 700; }
+@media (max-height: 480px) and (orientation: landscape) {
+  .phone-only { font-size: 11px; padding: 7px 10px; margin-bottom: 9px; gap: 7px; }
+  .phone-only svg { width: 16px; height: 16px; }
+}
