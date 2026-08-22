@@ -228,11 +228,11 @@ export const winById = (id) => WIN_OPTIONS.find((w) => w.id === id) || WIN_OPTIO
 /** Les niveaux de jeu des bots. */
 export const BOT_LEVELS = [
   { id: 'easy', name: 'Facile', force: 1,
-    tagline: 'Ils jouent au hasard plus souvent qu\'à leur tour et oublient d\'annoncer UNO.' },
+    tagline: 'Ils jouent souvent au hasard et oublient d\'annoncer UNO.' },
   { id: 'normal', name: 'Normal', force: 2,
-    tagline: 'Ils gardent leurs jokers, visent le joueur en tête et dénoncent parfois.' },
+    tagline: 'Ils gardent leurs jokers et visent le joueur en tête.' },
   { id: 'hard', name: 'Difficile', force: 3,
-    tagline: 'Ils comptent les couleurs, épargnent leur camp et ne pardonnent aucun oubli.' },
+    tagline: 'Ils comptent les couleurs et ne pardonnent aucun oubli.' },
 ];
 export const botById = (id) => BOT_LEVELS.find((b) => b.id === id) || BOT_LEVELS[1];
 
@@ -260,8 +260,8 @@ export const MODES = [
   },
   {
     id: 'party', groupe: 'extra', mode: 'party', name: 'Party',
-    tagline: 'De 8 à 32 joueurs, téléphone obligatoire. L\'écran de l\'hôte devient la table, '
-      + 'chaque téléphone devient une main. Avec des cartes party pour semer le chaos.',
+    tagline: 'De 8 à 32 joueurs, au téléphone. L\'écran de l\'hôte est la table, '
+      + 'chaque téléphone une main.',
     seats: 12, teams: false, party: true,
   },
 ];

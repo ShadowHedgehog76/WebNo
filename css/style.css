@@ -1375,17 +1375,20 @@ body.dark-side .pack-flip .card.back::after,
 .pk-mini .pk-fan { --cw: 34px; --ch: 51px; width: 76px; height: 56px; flex: none; }
 .pk-mini { flex: none; }
 
-.packs-modal { min-width: min(720px, 94vw); }
+.packs-modal { width: min(560px, 94vw); min-width: 0; }
+.packs-modal:has(.three) { width: min(830px, 94vw); }
 .pack-grid {
-  display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 4px 0 18px;
+  display: grid; grid-template-columns: repeat(2, var(--tuile, 258px));
+  justify-content: center; gap: 14px; margin: 4px 0 18px;
   max-height: 66vh; overflow-y: auto; padding-right: 4px;
   scrollbar-width: thin; scrollbar-color: rgba(255,255,255,.22) transparent;
 }
 .pack-grid::-webkit-scrollbar { width: 6px; }
 .pack-grid::-webkit-scrollbar-thumb { background: rgba(255,255,255,.22); border-radius: 3px; }
-@media (max-width: 560px) { .pack-grid { grid-template-columns: 1fr; } }
+@media (max-width: 620px) { .pack-grid { grid-template-columns: 1fr; --tuile: 100%; } }
 .pack-tile {
   display: grid; gap: 10px; padding: 16px 14px 14px; cursor: pointer;
+  height: 218px; grid-template-rows: auto 1fr; align-content: start;
   background: rgba(255,255,255,.045); border: 1.5px solid var(--line);
   border-radius: 18px; color: var(--txt); text-align: center;
   transition: background .18s, border-color .18s, transform .16s var(--ease);
@@ -1400,7 +1403,10 @@ body.dark-side .pack-flip .card.back::after,
 }
 .pt-vis .pk-fan { --cw: 52px; --ch: 78px; width: 100%; height: 100%; }
 .pt-txt b { display: block; font-family: var(--display); font-style: italic; font-size: 17px; }
-.pt-txt em { display: block; font-style: normal; font-size: 11.5px; color: var(--muted); margin-top: 3px; line-height: 1.4; }
+.pt-txt em {
+  display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
+  font-style: normal; font-size: 11.5px; color: var(--muted); margin-top: 3px; line-height: 1.4;
+}
 
 /* chaque vignette montre déjà l'allure de son paquet */
 .pack-tile[data-choice="nomercy"] .pt-vis { background: radial-gradient(60% 70% at 50% 40%, #2A1015, #0A0407); }
@@ -1519,8 +1525,8 @@ body.dark-side .pack-flip .card.back::after,
 .lobby-foot .btn-blue { flex: none; }
 
 /* ══════════════════════ aperçus des réglages ══════════════════════ */
-.pack-grid.three { grid-template-columns: repeat(3, 1fr); }
-@media (max-width: 640px) { .pack-grid.three { grid-template-columns: 1fr; } }
+.pack-grid.three { grid-template-columns: repeat(3, var(--tuile, 258px)); }
+@media (max-width: 860px) { .pack-grid.three { grid-template-columns: repeat(2, var(--tuile, 258px)); } }
 
 /* objectif de points */
 .wn-vis { display: grid; place-content: center; justify-items: center; gap: 3px; width: 100%; height: 100%; }
@@ -2017,9 +2023,13 @@ body.is-pad .flip-flash { display: none !important; }
   .modal h3 { font-size: 16px; margin-bottom: 10px; }
   .modal.wide, .packs-modal, .rules-modal, .party-modal, .settings-modal { min-width: 0; width: 94vw; }
   .pack-grid, .rule-grid, .party-grid { max-height: 52vh; gap: 9px; }
-  .pack-grid { grid-template-columns: repeat(3, 1fr); }
-  .pack-grid.three { grid-template-columns: repeat(3, 1fr); }
-  .pt-vis { height: 68px; }
+  /* couché, la hauteur manque : la vignette se resserre, mais garde la même
+     taille pour toutes */
+  .pack-grid, .pack-grid.three { grid-template-columns: repeat(3, var(--tuile)); --tuile: 206px; }
+  .pack-tile { height: 152px; padding: 10px 10px 9px; gap: 6px; }
+  .pt-vis { height: 66px; }
+  .pt-txt em { -webkit-line-clamp: 2; }
+  .packs-modal, .packs-modal:has(.three) { width: auto; }
   .pt-txt b { font-size: 13px; }
   .pt-txt em { font-size: 10.5px; }
   .rule-grid { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
