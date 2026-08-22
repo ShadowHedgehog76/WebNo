@@ -1,10 +1,10 @@
 // app.js — orchestration : accueil, salon, boucle hôte (moteur + IA), client
-import { UnoGame, DEFAULT_SETTINGS } from './engine.js?v=202608220242';
-import { botDecide, botJumpIn, botCallout, botDelay, botProfile } from './bot.js?v=202608220242';
-import { HostNet, ClientNet, normalizeCode, codeFromScan } from './net.js?v=202608220242';
-import { isWild } from './deck.js?v=202608220242';
-import * as ui from './ui.js?v=202608220242';
-import * as audio from './audio.js?v=202608220242';
+import { UnoGame, DEFAULT_SETTINGS } from './engine.js?v=202608220251';
+import { botDecide, botJumpIn, botCallout, botDelay, botProfile } from './bot.js?v=202608220251';
+import { HostNet, ClientNet, normalizeCode, codeFromScan } from './net.js?v=202608220251';
+import { isWild } from './deck.js?v=202608220251';
+import * as ui from './ui.js?v=202608220251';
+import * as audio from './audio.js?v=202608220251';
 
 const $ = (id) => document.getElementById(id);
 const BOT_NAMES = ['Léa', 'Max', 'Zoé', 'Nino', 'Iris', 'Sacha', 'Milo', 'Nora', 'Tao', 'Lila',
@@ -405,12 +405,14 @@ class Guest {
       case 'lobby':
         App.myId = msg.you;
         App.lobby = msg;
+        App.partyPad = msg.settings && msg.settings.mode === 'party';
+        if (App.partyPad) { pleinEcran(); exigeHorizontal(); }
         renderLobbyLocal(msg, false);
         ui.showScreen('lobby');
         ui.setWaiting(null);
         break;
       case 'started':
-        if (App.lobby && App.lobby.settings && App.lobby.settings.mode === 'party') pleinEcran();
+        if (App.partyPad) pleinEcran();
         audio.playMusic('game');
         audio.sfx('shuffle');
         ui.setWaiting(null);
@@ -677,6 +679,7 @@ function wireLobby() {
   };
   reglage('btn-mode', 'overlay-modes', (s) => ui.showModes(s, (m) => {
     App.host.settings.teamSize = m.teamSize || 2;
+    App.host.settings.partySize = App.host.settings.partySize || 12;
     App.host.setSetting('mode', m.mode || 'solo');
   }));
   reglage('btn-pack', 'overlay-packs', (s) => ui.showPacks(s, (id) => App.host.setSetting('pack', id)));
@@ -797,6 +800,23 @@ function wireGame() {
 }
 
 /* ── clavier ─────────────────────────────────────────────────────── */
+/** Le mode party sur téléphone exige le paysage et le plein écran. */
+function exigeHorizontal() {
+  const dur = App.partyPad && isHandheld();
+  const gate = $('rotate-gate');
+  if (!gate) return;
+  if (!dur) { gate.hidden = true; return; }
+  const portrait = window.innerHeight > window.innerWidth;
+  const dehors = !(document.fullscreenElement || document.webkitFullscreenElement);
+  gate.hidden = !(portrait || dehors);
+  if (gate.hidden) return;
+  $('rg-title').textContent = portrait ? 'Tournez votre téléphone' : 'Passez en plein écran';
+  $('rg-sub').textContent = portrait
+    ? 'Le mode party se joue à l\'horizontale : votre téléphone est votre main.'
+    : 'Le plein écran laisse toute la place à vos cartes.';
+  $('rg-go').hidden = !dehors;
+}
+
 /** Passe en plein écran, et demande le paysage sur un téléphone. */
 function pleinEcran() {
   const el = document.documentElement;
@@ -814,6 +834,7 @@ function pleinEcran() {
       if (p && p.catch) p.catch(() => {});
     } catch (_) { /* l'appareil n'en veut pas */ }
   }
+  setTimeout(exigeHorizontal, 300);
 }
 
 /* ── lecture d'un QR code par la caméra ────────────────────────────── */
@@ -996,6 +1017,10 @@ function boot() {
   wireLobby();
   wireGame();
   wireSound();
+  $('rg-go').onclick = () => pleinEcran();
+  for (const ev of ['resize', 'orientationchange', 'fullscreenchange', 'webkitfullscreenchange']) {
+    window.addEventListener(ev, () => setTimeout(exigeHorizontal, 120));
+  }
   ui.showScreen('home');
 
   window.__webno = App;   // point d'accès pour le débogage / les tests

@@ -1,11 +1,11 @@
 // ui.js — rendu du DOM : table 3D, mains, salon, overlays
 import {
   COLOR_LABEL, isWild, colorsOf, cardCatalog,
-  PACKS, packById, MODES, MODE_GROUPS, modeById, modeId,
+  PACKS, packById, MODES, MODE_GROUPS, modesOf, folderOf, modeById, modeId,
   WIN_OPTIONS, winById, winId, BOT_LEVELS, botById,
-} from './deck.js?v=202608220242';
-import { PARTY_CARDS, partyById } from './party.js?v=202608220242';
-import { qrSvg } from './qr.js?v=202608220242';
+} from './deck.js?v=202608220251';
+import { PARTY_CARDS, partyById } from './party.js?v=202608220251';
+import { qrSvg } from './qr.js?v=202608220251';
 
 /** Lien d'invitation d'une room. */
 export function joinUrl(code) {
@@ -377,18 +377,10 @@ function choiceButton({ btn, name, note, mini, item, vis }) {
 }
 
 /** La galerie d'un réglage : une vignette par choix possible. */
-function choiceGallery({ overlay, grid, items, current, vis, cls, onPick, groups }) {
+function choiceGallery({ overlay, grid, items, current, vis, cls, onPick }) {
   const g = $(grid);
   g.innerHTML = '';
-  let famille = null;
   for (const item of items) {
-    if (groups && item.groupe !== famille) {
-      famille = item.groupe;
-      const titre = document.createElement('div');
-      titre.className = 'choice-group';
-      titre.textContent = famille;
-      g.appendChild(titre);
-    }
     const tuile = document.createElement('button');
     tuile.className = 'pack-tile ' + cls;
     tuile.classList.toggle('on', item.id === current);
@@ -409,11 +401,48 @@ function choiceGallery({ overlay, grid, items, current, vis, cls, onPick, groups
 }
 
 /* ── les quatre réglages ── */
+/** Aperçu d'un dossier : les tables qu'il contient, empilées en éventail. */
+function folderVis(dossier) {
+  const vis = document.createElement('span');
+  vis.className = 'fd-vis';
+  const modes = modesOf(dossier.id);
+  modes.slice(0, 3).forEach((m, i) => {
+    const carte = document.createElement('span');
+    carte.className = 'fd-card';
+    carte.style.setProperty('--i', String(i - (Math.min(modes.length, 3) - 1) / 2));
+    carte.appendChild(modeVis(m));
+    vis.appendChild(carte);
+  });
+  const n = document.createElement('u');
+  n.textContent = modes.length + (modes.length > 1 ? ' modes' : ' mode');
+  vis.appendChild(n);
+  return vis;
+}
+
+/** Premier niveau : les dossiers. */
 export function showModes(settings, onPick) {
-  const ordonnes = MODE_GROUPS.flatMap((g) => MODES.filter((m) => m.groupe === g));
+  $('mode-title').textContent = 'Choisissez un mode de jeu';
+  $('mode-back').hidden = true;
+  const courant = modeById(modeId(settings));
   choiceGallery({
-    overlay: 'overlay-modes', grid: 'mode-grid', items: ordonnes,
-    current: modeId(settings), vis: modeVis, cls: 'mode-tile', onPick, groups: true,
+    overlay: 'overlay-modes', grid: 'mode-grid', items: MODE_GROUPS,
+    current: courant.groupe, vis: folderVis, cls: 'folder-tile',
+    onPick: (dossier) => { showModeFolder(dossier.id, settings, onPick); },
+  });
+  // la galerie se referme sur le choix : ici on ne fait qu'ouvrir un dossier
+  $('overlay-modes').hidden = false;
+}
+
+/** Second niveau : les modes d'un dossier. */
+export function showModeFolder(id, settings, onPick) {
+  const dossier = folderOf(id);
+  $('mode-title').textContent = dossier.name;
+  const retour = $('mode-back');
+  retour.hidden = false;
+  retour.onclick = () => showModes(settings, onPick);
+  choiceGallery({
+    overlay: 'overlay-modes', grid: 'mode-grid', items: modesOf(id),
+    current: modeId(settings), vis: modeVis, cls: 'mode-tile', onPick,
   });
 }
 export function hideModes() { $('overlay-modes').hidden = true; }

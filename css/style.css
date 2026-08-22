@@ -383,7 +383,7 @@ body.muted .sound-btn .ico-on { display: none; }
 
 /* flèches qui tournent autour des piles, dans le sens du jeu */
 .dir-ring {
-  --ring-r: calc(var(--cw) * 1.62);
+  --ring-r: calc(var(--cw) * 2.05);
   position: absolute; left: 50%; top: 50%;
   width: calc(var(--ring-r) * 2); height: calc(var(--ring-r) * 2);
   margin: calc(var(--ring-r) * -1) 0 0 calc(var(--ring-r) * -1);
@@ -845,7 +845,7 @@ body.is-host .non-host { display: none !important; }
   .felt { border-radius: 22px; }
   .felt::after { inset: 10px; border-radius: 16px; }
   .felt-mark { top: 80%; width: 58%; opacity: .07; }
-  .dir-ring { --ring-r: calc(var(--cw) * 2.15); }
+  .dir-ring { --ring-r: calc(var(--cw) * 2.3); }
   .orbit i { width: 20px; height: 18px; margin: -9px 0 0 -10px; }
 
   /* adversaires en bandeau sur toute la largeur */
@@ -1693,8 +1693,8 @@ body.is-screen .pad { display: none !important; }
 body.is-screen .scene { inset: 64px 0 92px 0; }
 body.is-screen .table3d { height: min(820px, 100%); max-width: 94vw; }
 body.is-screen .center { --cw: clamp(120px, 12vw, 220px); --ch: calc(var(--cw) * 1.5); gap: clamp(24px, 3vw, 54px); }
-body.is-screen .dir-ring { --ring-r: calc(var(--cw) * 1.5); }
-body.is-screen .orbit i { width: 38px; height: 34px; margin: -17px 0 0 -19px; }
+body.is-screen .dir-ring { --ring-r: calc(var(--cw) * 2.3); }
+body.is-screen .orbit i { width: 46px; height: 41px; margin: -20px 0 0 -23px; }
 body.is-screen #deck-pile { cursor: default; }
 body.is-screen #deck-pile.can-draw { animation: none; }
 
@@ -1866,3 +1866,74 @@ body.lobby-party .players { max-height: 52vh; overflow-y: auto; }
 .rl-side.party { color: #C39BEC; }
 .rl-card .pc { width: 72px; padding: 10px 6px 8px; }
 .rl-card .pc i { font-size: 23px; }
+
+/* ══════════════════════ les dossiers de modes ══════════════════════ */
+.fd-vis { position: relative; display: block; width: 100%; height: 100%; }
+.fd-card {
+  position: absolute; left: 50%; top: 50%;
+  width: 74%; height: 74%;
+  translate: calc(-50% + var(--i) * 16%) calc(-50% + var(--i) * 5%);
+  rotate: calc(var(--i) * 6deg);
+  border-radius: 12px; overflow: hidden;
+  background: radial-gradient(60% 70% at 50% 40%, #1B2233, #080B12);
+  border: 1px solid rgba(255,255,255,.12);
+  box-shadow: 0 8px 18px rgba(0,0,0,.55);
+  transition: translate .3s var(--ease), rotate .3s var(--ease);
+}
+.pack-tile:hover .fd-card { translate: calc(-50% + var(--i) * 21%) calc(-50% + var(--i) * 6%); }
+.fd-vis u {
+  position: absolute; right: 8px; bottom: 8px; text-decoration: none;
+  font-size: 10px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase;
+  color: #C6CDDC; background: rgba(8,10,16,.85); border: 1px solid rgba(255,255,255,.1);
+  padding: 3px 9px; border-radius: 99px;
+}
+.folder-tile .pt-vis { background: radial-gradient(60% 70% at 50% 40%, #141A26, #06080D); }
+/* dans un dossier, le compte des modes suffit : celui des joueurs encombre */
+.fd-card .md-count { display: none; }
+.folder-tile .pt-txt b::after { content: ' ›'; color: var(--muted); font-style: normal; }
+#mode-back { margin-right: auto; }
+.packs-modal .modal-actions { justify-content: center; gap: 10px; }
+
+/* ══════════════════════ le téléphone doit se tourner ══════════════════════ */
+.rotate-gate {
+  position: fixed; inset: 0; z-index: 200;
+  display: grid; place-items: center; padding: 24px;
+  background: radial-gradient(120% 90% at 50% 0%, #16202E, #05070C 70%);
+}
+.rotate-gate[hidden] { display: none; }
+.rg-inner { display: grid; justify-items: center; gap: 14px; text-align: center; max-width: 340px; }
+.rg-phone {
+  width: 74px; height: 122px; border-radius: 12px; position: relative;
+  border: 3px solid rgba(255,255,255,.85); background: rgba(255,255,255,.06);
+  animation: tourne 2.4s ease-in-out infinite;
+}
+.rg-phone i {
+  position: absolute; left: 50%; bottom: 7px; translate: -50% 0;
+  width: 26px; height: 3px; border-radius: 2px; background: rgba(255,255,255,.6);
+}
+@keyframes tourne {
+  0%, 30%   { rotate: 0deg; }
+  55%, 100% { rotate: -90deg; }
+}
+.rg-inner b { font-family: var(--display); font-style: italic; font-size: 21px; }
+.rg-inner em { font-style: normal; font-size: 13.5px; color: var(--muted); line-height: 1.5; }
+
+/* ══════════════════════ la manette : moins de bruit ══════════════════════
+   Les annonces vivent sur l'écran de l'hôte ; sur le téléphone elles
+   masqueraient les cartes au moment de jouer.                          */
+body.is-pad .toasts,
+body.is-pad .flip-flash { display: none !important; }
+@media (max-width: 900px) and (pointer: coarse) {
+  .toasts { display: none !important; }
+}
+
+/* les cartes injouables s'effacent vraiment quand c'est à nous */
+.hand .card.dim, .pad-hand .card.dim {
+  filter: grayscale(.35) brightness(.8);
+  opacity: .38;
+  transform: translateX(var(--x)) rotate(var(--a)) translateY(10px) scale(.94);
+}
+.hand.scroll .card.dim, .pad-hand.scroll .card.dim {
+  transform: translateY(10px) scale(.94);
+}
+.hand .card.dim:hover, .pad-hand .card.dim:hover { opacity: .6; }

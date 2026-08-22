@@ -25,14 +25,15 @@ les navigateurs se parlent directement en WebRTC (via [PeerJS](https://peerjs.co
 - **Reconnexion** : il suffit de retaper le code pour revenir. On retrouve son siège et sa main
   telle qu'on l'avait laissée, le pseudo servant à reconnaître sa place ; sans correspondance, on
   prend celle d'un bot au hasard. Le code de la dernière room est proposé d'office au retour.
-- **Les modes**, rangés en trois familles dans leur galerie :
+- **Les modes**, rangés dans trois dossiers que l'on ouvre depuis leur galerie :
   - **Chacun pour soi**, jusqu'à 4 joueurs ;
   - **Groupe** — 2 v 2, 3 v 3 ou 4 v 4 (jusqu'à 8 joueurs). Les équipes alternent autour de la
     table — A, B, A, B… — et chaque joueur voit le jeu de tous ses coéquipiers ;
   - **Extra — Party**, de 8 à 32 joueurs, sur le principe du GamePad de la Wii U : **l'écran de
     l'hôte est la table** (plateau, joueurs tout autour, cartes en grand, aucune main visible) et
     **chaque téléphone est une manette** (sa main, ses boutons, aucun plateau). Seuls les
-    téléphones peuvent rejoindre ; les deux écrans passent en plein écran. Le salon change
+    téléphones peuvent rejoindre ; les deux écrans passent en plein écran, et le téléphone
+    réclame le paysage tant qu'il n'y est pas — dans le salon comme en partie. Le salon change
     d'allure : les joueurs à gauche, le code et le QR en grand à droite pour être scannés de loin,
     les réglages derrière un bouton. Chacun reçoit en plus une **main party** — des cartes
     d'action pensées pour les grandes tablées (Tempête, Visée, Bouclier, Contagion, Grand vent,

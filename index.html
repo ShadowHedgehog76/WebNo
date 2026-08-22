@@ -9,7 +9,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-<link rel="stylesheet" href="css/style.css?v=202608220242" />
+<link rel="stylesheet" href="css/style.css?v=202608220251" />
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='16' fill='%230a0a0f'/><ellipse cx='50' cy='50' rx='38' ry='26' fill='%23ED1C24' transform='rotate(-20 50 50)'/><text x='50' y='60' font-size='30' font-family='Arial Black,sans-serif' font-style='italic' fill='%23fff' text-anchor='middle' transform='rotate(-20 50 50)'>W</text></svg>" />
 </head>
 <body>
@@ -365,9 +365,12 @@
 
 <div class="overlay" id="overlay-modes" hidden>
   <div class="modal wide packs-modal">
-    <h3>Choisissez un mode de jeu</h3>
+    <h3 id="mode-title">Choisissez un mode de jeu</h3>
     <div class="pack-grid" id="mode-grid"></div>
-    <button class="btn btn-ghost btn-tiny" data-cancel>Fermer</button>
+    <div class="modal-actions">
+      <button class="btn btn-ghost btn-tiny" id="mode-back" hidden>← Retour aux dossiers</button>
+      <button class="btn btn-ghost btn-tiny" data-cancel>Fermer</button>
+    </div>
   </div>
 </div>
 
@@ -424,11 +427,20 @@
   </div>
 </div>
 
+<div class="rotate-gate" id="rotate-gate" hidden>
+  <div class="rg-inner">
+    <span class="rg-phone" aria-hidden="true"><i></i></span>
+    <b id="rg-title">Tournez votre téléphone</b>
+    <em id="rg-sub">Le mode party se joue à l'horizontale, en plein écran.</em>
+    <button class="btn btn-yellow btn-big" id="rg-go">Passer en plein écran</button>
+  </div>
+</div>
+
 <div class="overlay" id="overlay-wait" hidden>
   <div class="modal"><div class="spinner"></div><p id="wait-text">Connexion…</p></div>
 </div>
 
 <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
-<script type="module" src="js/app.js?v=202608220242"></script>
+<script type="module" src="js/app.js?v=202608220251"></script>
 </body>
 </html>

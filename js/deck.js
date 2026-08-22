@@ -239,35 +239,41 @@ export const botById = (id) => BOT_LEVELS.find((b) => b.id === id) || BOT_LEVELS
 /** Les modes de jeu, rangés par famille. */
 export const MODES = [
   {
-    id: 'solo', groupe: 'Chacun pour soi', name: 'Chacun pour soi',
+    id: 'solo', groupe: 'solo', name: 'Chacun pour soi',
     tagline: 'Jusqu\'à quatre joueurs, et le premier à vider sa main l\'emporte.',
     seats: 4, teams: false,
   },
   {
-    id: 'team2', groupe: 'Groupe', mode: 'team', teamSize: 2, name: 'Équipes 2 v 2',
+    id: 'team2', groupe: 'groupe', mode: 'team', teamSize: 2, name: 'Équipes 2 v 2',
     tagline: 'Quatre joueurs, deux camps. Vous voyez le jeu de votre coéquipier.',
     seats: 4, teams: true,
   },
   {
-    id: 'team3', groupe: 'Groupe', mode: 'team', teamSize: 3, name: 'Équipes 3 v 3',
+    id: 'team3', groupe: 'groupe', mode: 'team', teamSize: 3, name: 'Équipes 3 v 3',
     tagline: 'Six joueurs qui alternent autour de la table : A, B, A, B…',
     seats: 6, teams: true,
   },
   {
-    id: 'team4', groupe: 'Groupe', mode: 'team', teamSize: 4, name: 'Équipes 4 v 4',
+    id: 'team4', groupe: 'groupe', mode: 'team', teamSize: 4, name: 'Équipes 4 v 4',
     tagline: 'Huit joueurs, la table au complet. Chaque camp joue à cartes ouvertes.',
     seats: 8, teams: true,
   },
   {
-    id: 'party', groupe: 'Extra', mode: 'party', name: 'Party',
+    id: 'party', groupe: 'extra', mode: 'party', name: 'Party',
     tagline: 'De 8 à 32 joueurs. L\'écran de l\'hôte devient la table, chaque téléphone '
       + 'devient une main. Avec des cartes party pour semer le chaos.',
     seats: 12, teams: false, party: true,
   },
 ];
 
-/** Les familles, dans l'ordre d'affichage. */
-export const MODE_GROUPS = ['Chacun pour soi', 'Groupe', 'Extra'];
+/** Les dossiers de modes, dans l'ordre d'affichage. */
+export const MODE_GROUPS = [
+  { id: 'solo', name: 'Chacun pour soi', tagline: 'La partie classique, chacun pour sa main.' },
+  { id: 'groupe', name: 'Groupe', tagline: 'Deux camps qui alternent autour de la table.' },
+  { id: 'extra', name: 'Extra', tagline: 'Les formules à part, pour les grandes soirées.' },
+];
+export const modesOf = (dossier) => MODES.filter((m) => m.groupe === dossier);
+export const folderOf = (id) => MODE_GROUPS.find((g) => g.id === id) || MODE_GROUPS[0];
 
 export function modeId(settings = {}) {
   if (settings.mode === 'party') return 'party';
