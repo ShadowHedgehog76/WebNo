@@ -3,9 +3,9 @@ import {
   COLOR_LABEL, isWild, colorsOf, cardCatalog,
   PACKS, packById, MODES, MODE_GROUPS, modesOf, folderOf, modeById, modeId,
   WIN_OPTIONS, winById, winId, BOT_LEVELS, botById,
-} from './deck.js?v=202608220251';
-import { PARTY_CARDS, partyById } from './party.js?v=202608220251';
-import { qrSvg } from './qr.js?v=202608220251';
+} from './deck.js?v=202608220257';
+import { PARTY_CARDS, partyById } from './party.js?v=202608220257';
+import { qrSvg } from './qr.js?v=202608220257';
 
 /** Lien d'invitation d'une room. */
 export function joinUrl(code) {
@@ -377,7 +377,7 @@ function choiceButton({ btn, name, note, mini, item, vis }) {
 }
 
 /** La galerie d'un réglage : une vignette par choix possible. */
-function choiceGallery({ overlay, grid, items, current, vis, cls, onPick }) {
+function choiceGallery({ overlay, grid, items, current, vis, cls, onPick, keepOpen }) {
   const g = $(grid);
   g.innerHTML = '';
   for (const item of items) {
@@ -394,7 +394,11 @@ function choiceGallery({ overlay, grid, items, current, vis, cls, onPick }) {
     txt.querySelector('b').textContent = item.name;
     txt.querySelector('em').textContent = item.tagline;
     tuile.append(box, txt);
-    tuile.onclick = () => { onPick(item); $(overlay).hidden = true; };
+    tuile.onclick = () => {
+      onPick(item);
+      // ouvrir un dossier ne referme pas la fenêtre : on y descend d'un cran
+      if (!keepOpen) $(overlay).hidden = true;
+    };
     g.appendChild(tuile);
   }
   $(overlay).hidden = false;
@@ -426,11 +430,9 @@ export function showModes(settings, onPick) {
   const courant = modeById(modeId(settings));
   choiceGallery({
     overlay: 'overlay-modes', grid: 'mode-grid', items: MODE_GROUPS,
-    current: courant.groupe, vis: folderVis, cls: 'folder-tile',
+    current: courant.groupe, vis: folderVis, cls: 'folder-tile', keepOpen: true,
     onPick: (dossier) => { showModeFolder(dossier.id, settings, onPick); },
   });
-  // la galerie se referme sur le choix : ici on ne fait qu'ouvrir un dossier
-  $('overlay-modes').hidden = false;
 }
 
 /** Second niveau : les modes d'un dossier. */
