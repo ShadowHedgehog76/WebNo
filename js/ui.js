@@ -3,9 +3,9 @@ import {
   COLOR_LABEL, isWild, colorsOf, cardCatalog,
   PACKS, packById, MODES, MODE_GROUPS, modesOf, folderOf, modeById, modeId,
   WIN_OPTIONS, winById, winId, BOT_LEVELS, botById,
-} from './deck.js?v=202608220324';
-import { PARTY_CARDS, partyById } from './party.js?v=202608220324';
-import { qrSvg } from './qr.js?v=202608220324';
+} from './deck.js?v=202608221320';
+import { PARTY_CARDS, partyById } from './party.js?v=202608221320';
+import { qrSvg } from './qr.js?v=202608221320';
 
 /** Lien d'invitation d'une room. */
 export function joinUrl(code) {
@@ -249,7 +249,7 @@ export function renderLobby({ code, players, settings, isHost, maxPlayers = 4 },
     else if (!party && bloc.parentElement === fente) panneau.appendChild(bloc);
     panneau.hidden = party;
   }
-  document.body.dataset.pack = settings.pack || 'classic';
+  habillerPack(settings.pack);
   renderChoiceButtons(settings);
   renderCatalog(settings);
   $('settings').classList.toggle('locked', !isHost);
@@ -487,6 +487,20 @@ function renderChoiceButtons(settings) {
     item: winById(winId(settings)), vis: winVis });
   choiceButton({ btn: 'btn-bots', name: 'bots-name', note: 'bots-note', mini: 'bots-mini',
     item: botById(settings.botLevel || 'normal'), vis: botVis });
+}
+
+/**
+ * Applique l'habillage d'un paquet aux zones qui montrent ses cartes.
+ * Porté par le corps de page, il repeignait aussi les aperçus des autres
+ * paquets dans la galerie.
+ */
+function habillerPack(pack) {
+  const id = pack || 'classic';
+  for (const cible of ['screen-game', 'card-list']) {
+    const el = $(cible);
+    if (!el) continue;
+    for (const p of PACKS) el.classList.toggle('pack-' + p.id, p.id === id);
+  }
 }
 
 /** Liste des cartes du paquet choisi, avec ce que chacune fait vraiment. */
@@ -834,7 +848,7 @@ export function renderGame(state, handlers = {}) {
   const table = $('table3d');
   if (table) table.style.setProperty('--play-color', COLOR_HEX[state.currentColor] || 'rgba(255,255,255,.2)');
   document.body.classList.toggle('dark-side', state.side === 'dark');
-  document.body.dataset.pack = state.pack || 'classic';
+  habillerPack(state.pack);
 
   const pb = $('pending-badge');
   if (state.pendingDraw > 0) {
