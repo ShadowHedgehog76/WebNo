@@ -4,12 +4,14 @@
 // pilotée par l'état que l'hôte diffuse ; elle ne décide de rien, elle montre.
 
 import * as T from './vendor/three.module.min.js';
-import { peindreFace, peindreDos } from './cardtex.js?v=202608241739';
+import { peindreFace, peindreDos } from './cardtex.js?v=202608241826';
 
 /* ─────────────── réglages ─────────────── */
 const CARTE = { l: 1, h: 1.5, e: 0.014 };     // largeur, hauteur, épaisseur
 const TAPIS_R = 5.2;                           // rayon du feutre
 const DUREE = { pose: 460, pioche: 400, donne: 300, retour: 520 };
+const PILE_MAX = 5;          // cartes visibles sur la défausse
+const PILE_PAS = 0.055;      // écart entre deux cartes de la pile
 const OVALE = 1.34;          // la table est plus large que profonde
 const MAIN_Z = 3.55;        // à quelle distance du centre le joueur tient sa main
 const MAIN_ECH = 0.92;      // les cartes en main, un peu plus petites que sur table
@@ -730,12 +732,24 @@ export class Plateau {
       && this.defausse.children[this.defausse.children.length - 1].userData.cardId === top.id;
     if (dejaLa) return;
 
+    // La pile garde une hauteur bornée : au-delà de cinq cartes, la plus
+    // ancienne s'efface et les autres descendent d'un cran. Sans quoi les
+    // suivantes se poseraient à la même hauteur et se mordraient.
+    if (this.defausse.children.length >= PILE_MAX) {
+      const vieille = this.defausse.children[0];
+      this.defausse.remove(vieille);
+      vieille.material.forEach((mm) => { mm.transparent = true; });
+      for (const reste of this.defausse.children) {
+        anime(reste, { 'position.y': reste.position.y - PILE_PAS }, 220, 'doux');
+      }
+    }
+
     const m = this._mesh(top, false);
     m.userData.cardId = top.id;
     m.userData.card = top;
-    const n = this.defausse.children.length;
+    const rang = this.defausse.children.length;
     const cible = {
-      'position.y': 0.014 + Math.min(n, 8) * CARTE.e * 3.2,
+      'position.y': 0.014 + rang * PILE_PAS,
       'rotation.y': (Math.random() - 0.5) * 0.5,
     };
 
@@ -746,18 +760,15 @@ export class Plateau {
     this.defausse.add(m);
     m.position.sub(this.defausse.position);
 
+    // Un seul mouvement, pas deux enchaînés : la courbe « ressort » dépasse
+    // la pile puis y revient, et l'état final est atteint même si l'on force
+    // la fin de l'animation.
     anime(m, {
       'position.x': 0, 'position.z': 0,
-      'position.y': cible['position.y'] + 0.5,
       'rotation.x': 0, 'rotation.z': 0,
       'rotation.y': cible['rotation.y'],
-    }, DUREE.pose, 'rond').then(() =>
-      anime(m, { 'position.y': cible['position.y'] }, 130, 'doux'));
-
-    while (this.defausse.children.length > 6) {
-      const vieux = this.defausse.children.shift();
-      this.defausse.remove(vieux);
-    }
+    }, DUREE.pose, 'rond');
+    anime(m, { 'position.y': cible['position.y'] }, DUREE.pose + 120, 'ressort');
   }
 
   /** La place d'où la carte s'envole : la main du joueur qui l'a posée. */

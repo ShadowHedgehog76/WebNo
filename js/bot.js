@@ -1,5 +1,5 @@
 // bot.js — IA des joueurs virtuels (exécutée chez l'hôte)
-import { isWild, isNumber, colorsOf } from './deck.js?v=202608241739';
+import { isWild, isNumber, colorsOf } from './deck.js?v=202608241826';
 
 const LEVELS = {
   easy:   { smart: 0.15, uno: 0.55, callout: 0.15, jump: 0.10, challenge: 0.2, delay: [900, 1600] },
