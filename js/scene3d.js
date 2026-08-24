@@ -4,12 +4,13 @@
 // pilotée par l'état que l'hôte diffuse ; elle ne décide de rien, elle montre.
 
 import * as T from './vendor/three.module.min.js';
-import { peindreFace, peindreDos } from './cardtex.js?v=202608241616';
+import { peindreFace, peindreDos } from './cardtex.js?v=202608241739';
 
 /* ─────────────── réglages ─────────────── */
 const CARTE = { l: 1, h: 1.5, e: 0.014 };     // largeur, hauteur, épaisseur
 const TAPIS_R = 5.2;                           // rayon du feutre
 const DUREE = { pose: 460, pioche: 400, donne: 300, retour: 520 };
+const OVALE = 1.34;          // la table est plus large que profonde
 const MAIN_Z = 3.55;        // à quelle distance du centre le joueur tient sa main
 const MAIN_ECH = 0.92;      // les cartes en main, un peu plus petites que sur table
 
@@ -113,6 +114,7 @@ export class Plateau {
 
     this._lumieres();
     this._salle();
+    this._bibliotheque();
     this._tapis();
     this._piles();
     this._fleches();
@@ -127,7 +129,7 @@ export class Plateau {
   }
 
   _lumieres() {
-    this.scene.add(new T.HemisphereLight(0x5C6A96, 0x0A0E18, 0.72));
+    this.scene.add(new T.HemisphereLight(0x6B7AA8, 0x121620, 0.86));
     const cle = new T.DirectionalLight(0xFFFBF4, 1.25);
     cle.position.set(-3.5, 8, 4.5);
     cle.castShadow = true;
@@ -149,7 +151,7 @@ export class Plateau {
    * perdent au lieu de buter sur du vide noir.
    */
   _salle() {
-    this.scene.fog = new T.FogExp2(0x080A12, 0.021);
+    this.scene.fog = new T.FogExp2(0x090C15, 0.0155);
     this.scene.background = null;
 
     // le plancher, bien au-delà du tapis
@@ -240,29 +242,131 @@ export class Plateau {
     faisceau.position.y = 5.1;
     this.groupe.add(faisceau);
 
-    // quelques sièges suggérés, pour habiter le pourtour
-    const bois = new T.MeshStandardMaterial({ color: 0x2E2533, roughness: 0.74 });
-    for (let i = 0; i < 10; i++) {
-      const a = (i / 10) * Math.PI * 2 + 0.31;
+    this.chaises = new T.Group();
+    this.groupe.add(this.chaises);
+    this._boisChaise = new T.MeshStandardMaterial({ color: 0x4A3A50, roughness: 0.68 });
+  }
+
+  /**
+   * Une chaise par joueur, posée sur l'ovale, dossier vers l'extérieur —
+   * on s'assied face à la table, pas dos à elle.
+   */
+  _majChaises(n) {
+    if (this._chaisesN === n) return;
+    this._chaisesN = n;
+    while (this.chaises.children.length) this.chaises.remove(this.chaises.children[0]);
+    const bois = this._boisChaise;
+    for (let i = 0; i < n; i++) {
+      const a = Math.PI / 2 + (i / n) * Math.PI * 2;
+      const rx = (TAPIS_R * OVALE + 1.5), rz = (TAPIS_R + 1.5);
+      const x = Math.cos(a) * rx, z = Math.sin(a) * rz;
       const chaise = new T.Group();
-      chaise.position.set(Math.cos(a) * (TAPIS_R + 2.15), -0.98, Math.sin(a) * (TAPIS_R + 2.15));
-      chaise.rotation.y = -a + Math.PI / 2;
-      const assise = new T.Mesh(new T.BoxGeometry(1.25, 0.18, 1.15), bois);
+      chaise.position.set(x, -0.98, z);
+      // le dossier regarde le dehors : on fait face au centre
+      chaise.rotation.y = -Math.atan2(z, x) - Math.PI / 2;
+
+      const assise = new T.Mesh(new T.BoxGeometry(1.15, 0.17, 1.08), bois);
+      assise.castShadow = assise.receiveShadow = true;
       chaise.add(assise);
-      const dossier = new T.Mesh(new T.BoxGeometry(1.25, 1.45, 0.16), bois);
-      dossier.position.set(0, 0.80, -0.52);
+      const dossier = new T.Mesh(new T.BoxGeometry(1.15, 1.35, 0.15), bois);
+      dossier.position.set(0, 0.75, 0.50);       // derrière celui qui s'assied
+      dossier.castShadow = true;
       chaise.add(dossier);
-      for (const [px, pz] of [[-0.5, 0.5], [0.5, 0.5], [-0.5, -0.5], [0.5, -0.5]]) {
-        const p = new T.Mesh(new T.CylinderGeometry(0.07, 0.06, 0.9, 8), bois);
+      for (const [px, pz] of [[-0.46, 0.44], [0.46, 0.44], [-0.46, -0.44], [0.46, -0.44]]) {
+        const p = new T.Mesh(new T.CylinderGeometry(0.065, 0.055, 0.88, 8), bois);
         p.position.set(px, -0.52, pz);
         chaise.add(p);
       }
-      assise.castShadow = dossier.castShadow = true;
-      this.groupe.add(chaise);
+      this.chaises.add(chaise);
     }
   }
 
-  /** Le feutre, sa bordure et la marque au centre. */
+  /**
+   * Une bibliothèque en fond de salle : des rayonnages garnis de livres aux
+   * dos irréguliers. C'est peint sur une toile puis appliqué à plat — mille
+   * volumes en volume coûteraient cher pour un décor qu'on ne fait qu'entrevoir.
+   */
+  _bibliotheque() {
+    const L = 1024, H = 1024;
+    const cv = document.createElement('canvas');
+    cv.width = L; cv.height = H;
+    const x = cv.getContext('2d');
+    x.fillStyle = '#150F12';
+    x.fillRect(0, 0, L, H);
+
+    const rayons = 6;
+    const hR = H / rayons;
+    const teintes = ['#7A2E2A', '#2E4A6B', '#3E5B39', '#6B5426', '#4A2E5B',
+                     '#6B3A2E', '#2E5B58', '#5B4A2E', '#3A3550', '#6B2E4A'];
+    for (let r = 0; r < rayons; r++) {
+      const y0 = r * hR;
+      // le fond du rayonnage
+      x.fillStyle = '#0E0A0D';
+      x.fillRect(0, y0, L, hR);
+      // les livres, largeurs et hauteurs irrégulières
+      let px = 6 + Math.random() * 10;
+      while (px < L - 14) {
+        const w = 13 + Math.random() * 30;
+        const h = hR * (0.58 + Math.random() * 0.32);
+        const t = teintes[(Math.random() * teintes.length) | 0];
+        const pench = Math.random() < 0.06;
+        x.save();
+        x.translate(px, y0 + hR - 14);
+        if (pench) x.rotate(-0.12 - Math.random() * 0.1);
+        x.fillStyle = t;
+        x.fillRect(0, -h, w, h);
+        // le liseré du dos, et parfois un titre doré
+        x.fillStyle = 'rgba(0,0,0,.32)';
+        x.fillRect(0, -h, 3, h);
+        x.fillStyle = 'rgba(255,255,255,.10)';
+        x.fillRect(w - 3, -h, 2, h);
+        if (w > 20 && Math.random() < 0.55) {
+          x.fillStyle = 'rgba(214,184,110,.62)';
+          x.fillRect(4, -h * 0.72, w - 9, 3);
+          if (Math.random() < 0.5) x.fillRect(4, -h * 0.34, w - 9, 2);
+        }
+        x.restore();
+        px += w + 1 + Math.random() * 3;
+      }
+      // la planche
+      x.fillStyle = '#241A20';
+      x.fillRect(0, y0 + hR - 14, L, 14);
+      x.fillStyle = 'rgba(255,255,255,.06)';
+      x.fillRect(0, y0 + hR - 14, L, 2);
+    }
+    // les montants
+    x.fillStyle = '#241A20';
+    x.fillRect(0, 0, 12, H);
+    x.fillRect(L - 12, 0, 12, H);
+    // la pénombre du bas, pour fondre avec le sol
+    const g = x.createLinearGradient(0, H * 0.62, 0, H);
+    g.addColorStop(0, 'rgba(8,10,18,0)');
+    g.addColorStop(1, 'rgba(8,10,18,.92)');
+    x.fillStyle = g;
+    x.fillRect(0, H * 0.62, L, H * 0.38);
+
+    const tex = new T.CanvasTexture(cv);
+    tex.colorSpace = T.SRGBColorSpace;
+    tex.wrapS = T.RepeatWrapping;
+    tex.repeat.set(3, 1);
+    tex.anisotropy = 8;
+    // Un mur courbe plutôt que des pans plats : assemblés, ceux-ci formaient
+    // un couloir dont les bords venaient barrer la table.
+    tex.repeat.set(6, 1);
+    const mur = new T.Mesh(
+      new T.CylinderGeometry(15.5, 15.5, 8.8, 64, 1, true, Math.PI * 0.30, Math.PI * 1.40),
+      new T.MeshStandardMaterial({ map: tex, roughness: 0.92, side: T.BackSide }),
+    );
+    mur.position.y = 2.9;
+    mur.receiveShadow = true;
+    this.groupe.add(mur);
+    // une lueur rasante, pour que les rayonnages sortent de l'ombre
+    const veilleuse = new T.PointLight(0xC9B48A, 26, 26, 1.7);
+    veilleuse.position.set(0, 4.4, -9.5);
+    this.groupe.add(veilleuse);
+  }
+
+  /** Le feutre, sa bordure et la marque au centre. */  /** Le feutre, sa bordure et la marque au centre. */
   _tapis() {
     const cv = document.createElement('canvas');
     cv.width = cv.height = 1024;
@@ -303,6 +407,7 @@ export class Plateau {
       new T.MeshStandardMaterial({ map: tex, roughness: 0.94, metalness: 0 }),
     );
     feutre.rotation.x = -Math.PI / 2;
+    feutre.scale.x = OVALE;
     feutre.receiveShadow = true;
     this.groupe.add(feutre);
 
@@ -311,6 +416,7 @@ export class Plateau {
       new T.MeshStandardMaterial({ color: 0x3A1C22, roughness: 0.38, metalness: 0.28 }),
     );
     bord.rotation.x = -Math.PI / 2;
+    bord.scale.x = OVALE;
     bord.position.y = -0.02;
     bord.castShadow = bord.receiveShadow = true;
     this.groupe.add(bord);
@@ -370,12 +476,17 @@ export class Plateau {
   /* ── fabrication d'une carte ── */
   _materiaux(card, verso) {
     if (!this._geo) this._geo = new T.BoxGeometry(CARTE.l, CARTE.e, CARTE.h);
-    const tranche = new T.MeshStandardMaterial({ color: 0xF2F4F8, roughness: 0.75 });
+    const tranche = new T.MeshStandardMaterial({ color: 0xF2F4F8, roughness: 0.75, transparent: true, opacity: 0.9 });
     const face = (cv) => {
       const t = new T.CanvasTexture(cv);
       t.colorSpace = T.SRGBColorSpace;
       t.anisotropy = 8;
-      return new T.MeshStandardMaterial({ map: t, roughness: 0.62, metalness: 0.02 });
+      // Les coins de la toile sont transparents ; sans « alphaTest » ils se
+      // peignaient en noir au lieu d'être découpés.
+      return new T.MeshStandardMaterial({
+        map: t, roughness: 0.62, metalness: 0.02,
+        transparent: true, alphaTest: 0.5,
+      });
     };
     const dessus = verso || !card
       ? face(peindreDos(this.pack, this.side))
@@ -426,9 +537,11 @@ export class Plateau {
     if (this.vueManette) {
       zAvant = MAIN_Z + 1.5; zArriere = MAIN_Z - 2.2; demiLarge = 3.4; incline = 0.62;
     } else if (this.vueEcran) {
-      zAvant = TAPIS_R + 0.7; zArriere = -TAPIS_R - 0.7; demiLarge = TAPIS_R + 0.7; incline = 1.02;
+      zAvant = TAPIS_R + 0.7; zArriere = -TAPIS_R - 0.7;
+      demiLarge = TAPIS_R * OVALE + 0.7; incline = 0.86;
     } else {
-      zAvant = MAIN_Z + 1.35; zArriere = -TAPIS_R - 0.5; demiLarge = TAPIS_R + 0.3; incline = 0.86;
+      zAvant = MAIN_Z + 1.35; zArriere = -TAPIS_R - 0.5;
+      demiLarge = TAPIS_R * OVALE + 0.3; incline = 0.62;
     }
 
     const profondeur = zAvant - zArriere;
@@ -556,6 +669,7 @@ export class Plateau {
     this._modeVue();
     if (changePack) { this._repeindreTout(); this._placeCamera(); }
 
+    this._majChaises(Math.max(4, state.players.length));
     this._placeAdversaires(state);
     this._majDefausse(state, avant);
     this._majMain(state, avant);
@@ -621,7 +735,7 @@ export class Plateau {
     m.userData.card = top;
     const n = this.defausse.children.length;
     const cible = {
-      'position.y': 0.012 + Math.min(n, 8) * CARTE.e * 1.2,
+      'position.y': 0.014 + Math.min(n, 8) * CARTE.e * 3.2,
       'rotation.y': (Math.random() - 0.5) * 0.5,
     };
 
@@ -640,7 +754,7 @@ export class Plateau {
     }, DUREE.pose, 'rond').then(() =>
       anime(m, { 'position.y': cible['position.y'] }, 130, 'doux'));
 
-    while (this.defausse.children.length > 9) {
+    while (this.defausse.children.length > 6) {
       const vieux = this.defausse.children.shift();
       this.defausse.remove(vieux);
     }
@@ -725,7 +839,7 @@ export class Plateau {
 
   /** Position d'une carte dans l'éventail. */
   _placeEnMain(i, total) {
-    const large = Math.min(6.0, Math.max(1.4, total * 0.58));
+    const large = Math.min(7.4, Math.max(1.4, total * 0.86));
     const pas = total > 1 ? large / (total - 1) : 0;
     const x = total > 1 ? -large / 2 + i * pas : 0;
     const centre = total > 1 ? (i - (total - 1) / 2) / ((total - 1) / 2 || 1) : 0;
@@ -759,14 +873,14 @@ export class Plateau {
       const a = this.vueEcran
         ? (i / total) * Math.PI * 2 + Math.PI / 2
         : Math.PI + ((i + 1) / (total + 1)) * Math.PI;
-      const r = TAPIS_R * 0.78;
-      d.racine.position.set(Math.cos(a) * r, 0.02, Math.sin(a) * r);
-      d.racine.rotation.y = -a - Math.PI / 2;
+      const r = TAPIS_R * 0.80;
+      d.racine.position.set(Math.cos(a) * r * OVALE, 0.02, Math.sin(a) * r);
+      d.racine.rotation.y = -Math.atan2(Math.sin(a), Math.cos(a) * OVALE) - Math.PI / 2;
 
       this._majEventail(d, p, state);
       this._majEtiquette(d, p, state);
       if (d.etiquette) {
-        d.etiquette.position.set(d.racine.position.x * 1.06, 0.72, d.racine.position.z * 1.06);
+        d.etiquette.position.set(d.racine.position.x * 1.05, 0.74, d.racine.position.z * 1.05);
       }
     });
 
