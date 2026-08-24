@@ -15,9 +15,11 @@ python3 -m http.server $PORT >/dev/null 2>&1 &
 SERVEUR=$!
 trap 'kill $SERVEUR 2>/dev/null' EXIT
 sleep 1
+for SUITE in plateau cadrage; do
+echo "  · $SUITE"
 SORTIE=$("$CHROME" --headless=new --use-gl=angle --use-angle=swiftshader \
-  --enable-unsafe-swiftshader --virtual-time-budget=20000 --window-size=1000,900 \
-  --dump-dom "http://localhost:$PORT/tests/plateau.html" 2>/dev/null)
+  --enable-unsafe-swiftshader --virtual-time-budget=30000 --window-size=1000,1000 \
+  --dump-dom "http://localhost:$PORT/tests/$SUITE.html" 2>/dev/null)
 echo "$SORTIE" | python3 -c "
 import sys, re, html
 d = sys.stdin.read()
@@ -28,3 +30,4 @@ t = re.sub(r'<div class=\"(ok|ko)\">', '\n  ', t).replace('</div>', '')
 print(html.unescape(t).strip())
 sys.exit(1 if 'ECHEC' in d or '✗' in t else 0)
 "
+done

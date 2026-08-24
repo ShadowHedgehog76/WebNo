@@ -1,0 +1,88 @@
+<!DOCTYPE html><html><head><meta charset="utf-8"><title>cadrage</title>
+<style>body{margin:0;background:#0B0C13;color:#DDE3EC;font:12px/1.6 monospace;padding:12px}
+iframe{position:absolute;left:-4000px;border:0}.ok{color:#2ED47B}.ko{color:#FF6B62}</style>
+</head><body><div id="out">…</div><script type="module">
+// Vérifie que tout ce qui compte tient dans le cadre : on projette les coins
+// des objets à l'écran, seule mesure qui dise vraiment ce que l'on voit.
+const out = document.getElementById('out');
+const L = []; let pass = 0, fail = 0;
+const ok = (c, l, e = '') => { c ? pass++ : fail++;
+  L.push(`<div class="${c ? 'ok' : 'ko'}">${c ? '✓' : '✗'} ${l}${!c && e ? ' → ' + e : ''}</div>`);
+  out.innerHTML = L.join(''); };
+const attends = (ms) => new Promise((r) => setTimeout(r, ms));
+
+for (const [W, H, nom] of [[1870, 1010, 'grand écran'], [1400, 830, 'portable'],
+                           [1280, 650, 'écran bas'], [900, 1200, 'portrait']]) {
+  const f = document.createElement('iframe');
+  f.width = W; f.height = H; f.src = '../index.html';
+  document.body.appendChild(f);
+  await new Promise((r) => { f.onload = r; });
+  const w = f.contentWindow, d = f.contentDocument;
+  w.Peer = class { constructor(id) { this._h = {}; setTimeout(() => (this._h.open || []).forEach((fn) => fn(id)), 0); }
+    on(e, fn) { (this._h[e] = this._h[e] || []).push(fn); } destroy() {} };
+  d.getElementById('input-name').value = 'T';
+  d.getElementById('btn-create').click();
+  await attends(200);
+  d.getElementById('btn-fill-bots').click();
+  await attends(100);
+  d.getElementById('btn-start').click();
+  await attends(700);
+  const app = w.__webno, g = app.host.game, sc = w.__scene;
+  if (app.host.pump) { clearInterval(app.host.pump); app.host.pump = null; }
+  g.players[0].hand = [['red','5'],['blue','9'],['green','skip'],['yellow','2'],
+    ['red','draw2'],['wild','wild'],['blue','7']].map(([c,v],i)=>({id:'c'+i,color:c,value:v}));
+  g.discard = [{ id: 'top', color: 'red', value: '3' }];
+  g.currentColor = 'red'; g.turnIndex = 0;
+  app.host.afterChange();
+  await attends(80);
+  sc.finirAnimations();
+  sc._boucle();
+
+  const cv = d.getElementById('scene3d');
+  const larg = cv.clientWidth, haut = cv.clientHeight;
+  const T = sc.camera;
+  /** Le coin le plus extrême d'un objet, en pourcentage du cadre. */
+  const projette = (m) => {
+    const marges = { g: 100, d: 100, h: 100, b: 100 };
+    const dx = 0.5, dy = 0.75;
+    for (const sx of [-dx, dx]) for (const sz of [-dy, dy]) {
+      const v = new (m.position.constructor)(sx, 0, sz);
+      v.applyEuler(m.rotation).multiplyScalar(m.scale.x || 1).add(m.getWorldPosition(new m.position.constructor()));
+      v.project(T);
+      const px = (v.x + 1) / 2 * 100, py = (1 - v.y) / 2 * 100;
+      marges.g = Math.min(marges.g, px); marges.d = Math.min(marges.d, 100 - px);
+      marges.h = Math.min(marges.h, py); marges.b = Math.min(marges.b, 100 - py);
+    }
+    return marges;
+  };
+
+  const mains = [...sc.cartes.values()];
+  const pires = mains.map(projette).reduce((a, m) => ({
+    g: Math.min(a.g, m.g), d: Math.min(a.d, m.d), h: Math.min(a.h, m.h), b: Math.min(a.b, m.b),
+  }), { g: 100, d: 100, h: 100, b: 100 });
+  ok(pires.b > 0, `${nom} ${larg}×${haut} — la main tient dans le cadre`,
+     `déborde de ${(-pires.b).toFixed(1)} % en bas`);
+  ok(pires.g > 0 && pires.d > 0, `${nom} — et ne sort pas sur les côtés`,
+     `g ${pires.g.toFixed(1)} d ${pires.d.toFixed(1)}`);
+
+  const sieges = [...sc.dossiers.values()].map((x) => projette(x.racine));
+  const hautMin = Math.min(...sieges.map((m) => m.h));
+  ok(hautMin > 0, `${nom} — les adversaires tiennent aussi`, `déborde de ${(-hautMin).toFixed(1)} % en haut`);
+
+  // la toile ne doit pas passer sous la barre de commandes
+  {
+    const zone = d.querySelector('.myzone');
+    const rc = cv.getBoundingClientRect(), rz = zone.getBoundingClientRect();
+    ok(rc.bottom <= rz.top + 1, `${nom} — la toile s'arrête au-dessus des commandes`,
+       `toile jusqu'à ${Math.round(rc.bottom)}, commandes dès ${Math.round(rz.top)}`);
+  }
+
+  const p = projette(sc.pioche.children[sc.pioche.children.length - 1]);
+  ok(p.h > 5 && p.b > 5, `${nom} — les piles sont bien au milieu`,
+     `haut ${p.h.toFixed(0)} bas ${p.b.toFixed(0)}`);
+  f.remove();
+}
+L.push(`<h3>${pass} réussis, ${fail} échec(s).</h3>`);
+out.innerHTML = L.join('');
+document.title = fail ? 'ECHEC:' + fail : 'OK:' + pass;
+</script></body></html>

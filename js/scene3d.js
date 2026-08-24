@@ -4,12 +4,14 @@
 // pilotée par l'état que l'hôte diffuse ; elle ne décide de rien, elle montre.
 
 import * as T from './vendor/three.module.min.js';
-import { peindreFace, peindreDos } from './cardtex.js?v=202608241542';
+import { peindreFace, peindreDos } from './cardtex.js?v=202608241601';
 
 /* ─────────────── réglages ─────────────── */
 const CARTE = { l: 1, h: 1.5, e: 0.014 };     // largeur, hauteur, épaisseur
 const TAPIS_R = 5.2;                           // rayon du feutre
 const DUREE = { pose: 460, pioche: 400, donne: 300, retour: 520 };
+const MAIN_Z = 3.55;        // à quelle distance du centre le joueur tient sa main
+const MAIN_ECH = 0.92;      // les cartes en main, un peu plus petites que sur table
 
 /* ─────────────── petites animations ───────────────
    Trois courbes suffisent : une pour poser, une pour rebondir, une pour
@@ -281,25 +283,107 @@ export class Plateau {
     this._placeCamera();
   }
 
+  /**
+   * Cadre la scène par le calcul plutôt qu'à coups de valeurs choisies au
+   * jugé : on donne le rectangle à faire tenir, la caméra recule ce qu'il
+   * faut pour l'englober — en hauteur comme en largeur, sur tout écran.
+   */
   _placeCamera() {
-    const large = (this.canvas.clientWidth || 1) / (this.canvas.clientHeight || 1);
-    if (this.vueManette) {                     // manette : la main, de près
-      this.camera.position.set(0, 2.15, 6.15);
-      this.camera.lookAt(0, 0.35, 4.35);
-    } else if (this.vueEcran) {                // mode party : la table entière
-      this.camera.position.set(0, 9.4, 6.2);
-      this.camera.lookAt(0, 0, 0.2);
-    } else if (large < 1.05) {                 // portrait : on recule
-      this.camera.position.set(0, 8.2, 8.0);
-      this.camera.lookAt(0, 0, 0.9);
+    const l = this.canvas.clientWidth || 1;
+    const h = this.canvas.clientHeight || 1;
+    const ratio = l / h;
+
+    // ce qu'il faut voir : la table, et devant elle la main du joueur
+    let zAvant, zArriere, demiLarge, incline;
+    if (this.vueManette) {
+      zAvant = MAIN_Z + 1.5; zArriere = MAIN_Z - 2.2; demiLarge = 3.4; incline = 0.62;
+    } else if (this.vueEcran) {
+      zAvant = TAPIS_R + 0.7; zArriere = -TAPIS_R - 0.7; demiLarge = TAPIS_R + 0.7; incline = 1.02;
     } else {
-      this.camera.position.set(0, 7.1, 7.3);
-      this.camera.lookAt(0, 0, 0.9);
+      zAvant = MAIN_Z + 1.35; zArriere = -TAPIS_R - 0.5; demiLarge = TAPIS_R + 0.3; incline = 0.86;
     }
+
+    const profondeur = zAvant - zArriere;
+    const centreZ = (zAvant + zArriere) / 2;
+    const fov = (this.camera.fov * Math.PI) / 180;
+
+    // distance pour tenir en hauteur, puis en largeur ; on garde la plus grande
+    const vue = profondeur * Math.cos(incline) + 1.1;      // hauteur apparente
+    const dH = (vue / 2) / Math.tan(fov / 2);
+    const dL = (demiLarge / Math.tan(fov / 2)) / ratio;
+    const dist = Math.max(dH, dL) * 1.06;
+
+    this._cadre = { incline, centreZ, dist };
+    this._poseCamera(dist, incline, centreZ);
+    this._ajusteCadre();
+  }
+
+  /**
+   * La formule cadre un rectangle à plat ; les cartes sont dressées et
+   * s'étalent. On projette donc ce qui est réellement là et on recule tant
+   * que quelque chose sort — la seule mesure qui dise ce que l'on voit.
+   */
+  _ajusteCadre() {
+    const c = this._cadre;
+    if (!c) return;
+    const coins = [];
+    // on vise la place d'arrivée, pas celle du vol en cours : sans quoi le
+    // cadre oscillerait à chaque carte qui bouge
+    const ajoute = (m, dx, dz) => {
+      if (!m || !m.visible) return;
+      const r = m.userData.repos;
+      const pos = r
+        ? new T.Vector3(r['position.x'], r['position.y'], r['position.z'])
+        : m.getWorldPosition(new T.Vector3());
+      const rot = r
+        ? new T.Euler(r['rotation.x'] || 0, r['rotation.y'] || 0, r['rotation.z'] || 0)
+        : m.rotation;
+      for (const sx of [-dx, dx]) for (const sz of [-dz, dz]) {
+        const v = new T.Vector3(sx, 0, sz);
+        v.applyEuler(rot).multiplyScalar(m.scale.x || 1);
+        v.add(pos);
+        coins.push(v);
+      }
+    };
+    for (const m of this.cartes.values()) ajoute(m, CARTE.l / 2, CARTE.h / 2);
+    for (const d of this.dossiers.values()) {
+      for (const m of d.cartes) ajoute(m, CARTE.l / 2, CARTE.h / 2);
+      if (d.etiquette) ajoute(d.etiquette, 0.68, 0.20);
+    }
+    ajoute(this.defausse.children[this.defausse.children.length - 1], CARTE.l / 2, CARTE.h / 2);
+    ajoute(this.pioche.children[this.pioche.children.length - 1], CARTE.l / 2, CARTE.h / 2);
+    if (!coins.length) return;
+
+    let dist = c.dist;
+    for (let essai = 0; essai < 16; essai++) {
+      let pire = 0;
+      for (const v of coins) {
+        const p = v.clone().project(this.camera);
+        pire = Math.max(pire, Math.abs(p.x) - 0.965, Math.abs(p.y) - 0.965);
+      }
+      if (pire <= 0) break;
+      dist *= 1 + Math.min(0.12, pire * 0.6);
+      this._poseCamera(dist, c.incline, c.centreZ);
+    }
+    c.dist = dist;
+  }
+
+  _poseCamera(dist, incline, centreZ) {
+    this.camera.position.set(0, Math.sin(incline) * dist, centreZ + Math.cos(incline) * dist);
+    this.camera.lookAt(0, 0, centreZ);
+    this.camera.updateMatrixWorld();
+    this.camera.updateProjectionMatrix();
   }
 
   _boucle() {
     this.images = (this.images || 0) + 1;
+    // La toile change de taille sans toujours prévenir : bascule de mode,
+    // barre du navigateur, rotation. On surveille plutôt que d'attendre.
+    const l = this.canvas.clientWidth, h = this.canvas.clientHeight;
+    if (l && h && (l !== this._l || h !== this._h)) {
+      this._l = l; this._h = h;
+      this.redimensionner();
+    }
     const now = performance.now();
     avanceTweens(now);
     const t = this.horloge.getElapsedTime();
@@ -342,6 +426,7 @@ export class Plateau {
     this._majDefausse(state, avant);
     this._majMain(state, avant);
     this._majPioche(state);
+    this._ajusteCadre();
   }
 
   /** En manette, seule la main compte : la table s'efface. */
@@ -364,7 +449,7 @@ export class Plateau {
   }
 
   /** Mène toutes les animations à leur terme, sans attendre. */
-  finirAnimations() { finisTweens(); }
+  finirAnimations() { finisTweens(); this._ajusteCadre(); }
 
   /** Remet la scène à zéro entre deux manches. */
   reinitialise() {
@@ -486,8 +571,9 @@ export class Plateau {
       // translucide : la transparence laisserait voir le tapis au travers et
       // trierait mal les faces.
       const eteinte = state.turnId === state.you && !m.userData.jouable;
-      const teinte = eteinte ? 0x5A6070 : 0xFFFFFF;
+      const teinte = eteinte ? 0x7C8290 : 0xFFFFFF;
       m.material.forEach((mm) => { if (mm.color) mm.color.setHex(teinte); });
+      m.scale.setScalar(MAIN_ECH);
       anime(m, cible, neuve ? DUREE.donne : 240, neuve ? 'ressort' : 'doux',
         neuve ? i * 45 : 0);
     });
@@ -505,16 +591,16 @@ export class Plateau {
 
   /** Position d'une carte dans l'éventail. */
   _placeEnMain(i, total) {
-    const large = Math.min(4.6, Math.max(1.6, total * 0.62));
+    const large = Math.min(6.0, Math.max(1.4, total * 0.58));
     const pas = total > 1 ? large / (total - 1) : 0;
     const x = total > 1 ? -large / 2 + i * pas : 0;
     const centre = total > 1 ? (i - (total - 1) / 2) / ((total - 1) / 2 || 1) : 0;
     return {
       x,
-      y: 0.78 - Math.abs(centre) * 0.10,
-      z: 3.75 + Math.abs(centre) * 0.20,
-      rx: 0.86,
-      rz: -centre * 0.20,
+      y: 0.72 - Math.abs(centre) * 0.08,
+      z: MAIN_Z + Math.abs(centre) * 0.18,
+      rx: 0.80,
+      rz: -centre * 0.18,
     };
   }
 
@@ -729,7 +815,7 @@ export class Plateau {
     const r = m.userData.repos;
     if (!r) return;
     if (m.userData.jouable === false) {
-      m.material.forEach((mm) => mm.color && mm.color.setHex(oui ? 0x9AA2B4 : 0x5A6070));
+      m.material.forEach((mm) => mm.color && mm.color.setHex(oui ? 0xB6BCC8 : 0x7C8290));
     }
     anime(m, {
       'position.y': r['position.y'] + (oui ? 0.42 : 0),

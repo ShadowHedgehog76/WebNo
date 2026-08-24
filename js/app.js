@@ -1,10 +1,10 @@
 // app.js — orchestration : accueil, salon, boucle hôte (moteur + IA), client
-import { UnoGame, DEFAULT_SETTINGS } from './engine.js?v=202608241542';
-import { botDecide, botJumpIn, botCallout, botDelay, botProfile } from './bot.js?v=202608241542';
-import { HostNet, ClientNet, normalizeCode, codeFromScan } from './net.js?v=202608241542';
-import { isWild } from './deck.js?v=202608241542';
-import * as ui from './ui.js?v=202608241542';
-import * as audio from './audio.js?v=202608241542';
+import { UnoGame, DEFAULT_SETTINGS } from './engine.js?v=202608241601';
+import { botDecide, botJumpIn, botCallout, botDelay, botProfile } from './bot.js?v=202608241601';
+import { HostNet, ClientNet, normalizeCode, codeFromScan } from './net.js?v=202608241601';
+import { isWild } from './deck.js?v=202608241601';
+import * as ui from './ui.js?v=202608241601';
+import * as audio from './audio.js?v=202608241601';
 
 const $ = (id) => document.getElementById(id);
 const BOT_NAMES = ['Léa', 'Max', 'Zoé', 'Nino', 'Iris', 'Sacha', 'Milo', 'Nora', 'Tao', 'Lila',
