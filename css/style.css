@@ -2150,17 +2150,15 @@ body.is-out .turn-flag, body.is-out .pad-turn { display: none; }
 /* La toile est enveloppée : un canvas placé par ses quatre côtés garde son
    format d'origine, et « height » forcée écraserait le bas. L'enveloppe tient
    la place, la toile la remplit. */
-.scene-wrap {
-  position: absolute; top: 52px; left: 0; right: 0; bottom: var(--zone-h, 172px);
-  overflow: hidden;
-}
+/* La scène occupe tout l'écran, sans bandeau qui la coupe. Les commandes
+   flottent au-dessus, sur un voile qui les détache du décor. */
+.scene-wrap { position: absolute; inset: 0; overflow: hidden; z-index: 0; }
 .scene-wrap > canvas {
   display: block; width: 100%; height: 100%;
   touch-action: none;                 /* le doigt vise, il ne fait pas défiler */
 }
-body.is-screen .scene-wrap { bottom: 96px; }
+
 /* la manette montre la même scène, mais cadrée sur la main */
-body.is-pad .scene-wrap { top: 40px; bottom: 64px; }
 body.is-pad .pad-hand { display: none; }
 body.is-pad .pad { background: none; pointer-events: none; }
 body.is-pad .pad-top, body.is-pad .pad-actions { pointer-events: auto; }
@@ -2172,7 +2170,17 @@ body.is-pad .pad-top, body.is-pad .pad-actions { pointer-events: auto; }
 }
 .no3d[hidden] { display: none; }
 
-/* la zone du bas ne montre plus les cartes : elle commande */
+/* les commandes flottent sur la scène, sans lui prendre de place */
+.myzone {
+  position: absolute; left: 0; right: 0; bottom: 0; z-index: 12;
+  background: linear-gradient(to top, rgba(4,6,11,.88) 42%, rgba(4,6,11,0));
+  padding: 26px 16px calc(12px + env(safe-area-inset-bottom));
+  pointer-events: none;
+}
+.myzone > * { pointer-events: auto; }
+.hud { z-index: 12; }
+.pending-badge { z-index: 11; }
+
 :root { --zone-h: 172px; }
 .hand { display: none; }
 .myzone .actions { margin-top: 0; }

@@ -3,9 +3,9 @@ import {
   COLOR_LABEL, isWild, colorsOf, cardCatalog,
   PACKS, packById, MODES, MODE_GROUPS, modesOf, folderOf, modeById, modeId,
   WIN_OPTIONS, winById, winId, BOT_LEVELS, botById,
-} from './deck.js?v=202608241601';
-import { PARTY_CARDS, partyById } from './party.js?v=202608241601';
-import { qrSvg } from './qr.js?v=202608241601';
+} from './deck.js?v=202608241616';
+import { PARTY_CARDS, partyById } from './party.js?v=202608241616';
+import { qrSvg } from './qr.js?v=202608241616';
 
 /** Lien d'invitation d'une room. */
 export function joinUrl(code) {
@@ -535,12 +535,25 @@ export async function monterPlateau(handlers) {
 }
 
 let dernierEtat = null;
+/** Mesure la place que prennent la barre du haut et les commandes du bas. */
+function reserveInterface() {
+  if (!scene) return;
+  const cv = $('scene3d');
+  if (!cv) return;
+  const cadre = cv.getBoundingClientRect();
+  const haut = $('hud'), bas = $('myzone') || document.querySelector('.myzone');
+  const hh = haut && !haut.hidden ? haut.getBoundingClientRect().height : 0;
+  const hb = bas && bas.offsetParent ? bas.getBoundingClientRect().height : 0;
+  scene.reserve(Math.round(hh + 6), Math.round(Math.min(hb, cadre.height * 0.42) + 6));
+}
+
 function plateau3d(state, handlers) {
   sceneHandlers = handlers;
   dernierEtat = state;
   // la scène se charge en différé : les premiers états arrivent avant elle
   if (!scene) return;
   scene.appliquer(state);
+  reserveInterface();
 }
 
 /** Effets ponctuels demandés par le journal de la partie. */

@@ -69,12 +69,23 @@ for (const [W, H, nom] of [[1870, 1010, 'grand écran'], [1400, 830, 'portable']
   const hautMin = Math.min(...sieges.map((m) => m.h));
   ok(hautMin > 0, `${nom} — les adversaires tiennent aussi`, `déborde de ${(-hautMin).toFixed(1)} % en haut`);
 
-  // la toile ne doit pas passer sous la barre de commandes
+  // la toile occupe tout l'écran ; ce sont les cartes qui doivent rester
+  // au-dessus des commandes qui flottent par-dessus
   {
+    const rc = cv.getBoundingClientRect();
+    ok(Math.abs(rc.height - H) < 2, `${nom} — la toile occupe toute la hauteur`,
+       `${Math.round(rc.height)} pour ${H}`);
     const zone = d.querySelector('.myzone');
-    const rc = cv.getBoundingClientRect(), rz = zone.getBoundingClientRect();
-    ok(rc.bottom <= rz.top + 1, `${nom} — la toile s'arrête au-dessus des commandes`,
-       `toile jusqu'à ${Math.round(rc.bottom)}, commandes dès ${Math.round(rz.top)}`);
+    const rz = zone.getBoundingClientRect();
+    const barre = d.querySelector('.hud').getBoundingClientRect();
+    let cachees = 0;
+    for (const m of sc.cartes.values()) {
+      const p = m.getWorldPosition(new (m.position.constructor)()).project(sc.camera);
+      const py = (1 - p.y) / 2 * rc.height + rc.top;
+      if (py > rz.top || py < barre.bottom) cachees++;
+    }
+    ok(cachees === 0, `${nom} — aucune carte ne passe sous l'interface`,
+       `${cachees} carte(s) cachée(s)`);
   }
 
   const p = projette(sc.pioche.children[sc.pioche.children.length - 1]);

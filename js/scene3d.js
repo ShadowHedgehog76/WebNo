@@ -4,7 +4,7 @@
 // pilotée par l'état que l'hôte diffuse ; elle ne décide de rien, elle montre.
 
 import * as T from './vendor/three.module.min.js';
-import { peindreFace, peindreDos } from './cardtex.js?v=202608241601';
+import { peindreFace, peindreDos } from './cardtex.js?v=202608241616';
 
 /* ─────────────── réglages ─────────────── */
 const CARTE = { l: 1, h: 1.5, e: 0.014 };     // largeur, hauteur, épaisseur
@@ -112,6 +112,7 @@ export class Plateau {
     this.scene.add(this.groupe);
 
     this._lumieres();
+    this._salle();
     this._tapis();
     this._piles();
     this._fleches();
@@ -126,8 +127,8 @@ export class Plateau {
   }
 
   _lumieres() {
-    this.scene.add(new T.HemisphereLight(0xBFD4FF, 0x0A1810, 0.85));
-    const cle = new T.DirectionalLight(0xFFF4E2, 1.5);
+    this.scene.add(new T.HemisphereLight(0x5C6A96, 0x0A0E18, 0.72));
+    const cle = new T.DirectionalLight(0xFFFBF4, 1.25);
     cle.position.set(-3.5, 8, 4.5);
     cle.castShadow = true;
     cle.shadow.mapSize.set(1024, 1024);
@@ -140,6 +141,125 @@ export class Plateau {
     const appoint = new T.DirectionalLight(0x88AAFF, 0.35);
     appoint.position.set(5, 4, -5);
     this.scene.add(appoint);
+  }
+
+  /**
+   * La salle autour de la table : un sol qui s'enfonce dans la pénombre, une
+   * suspension au-dessus du feutre, et de la brume pour que les bords se
+   * perdent au lieu de buter sur du vide noir.
+   */
+  _salle() {
+    this.scene.fog = new T.FogExp2(0x080A12, 0.021);
+    this.scene.background = null;
+
+    // le plancher, bien au-delà du tapis
+    const cv = document.createElement('canvas');
+    cv.width = cv.height = 512;
+    const x = cv.getContext('2d');
+    x.fillStyle = '#14161F';
+    x.fillRect(0, 0, 512, 512);
+    // lattes irrégulières, pour que le sol ne soit pas une nappe unie
+    for (let ligne = 0; ligne < 8; ligne++) {
+      const dec = (ligne % 2) * 32;
+      for (let i = -1; i < 9; i++) {
+        const l = 64 + Math.random() * 26;
+        const t = 26 + Math.random() * 9;
+        x.fillStyle = `rgb(${t},${t + 2},${t + 7})`;
+        x.fillRect(i * 64 + dec, ligne * 64, l - 2, 62);
+      }
+    }
+    x.globalAlpha = 0.5;
+    for (let i = 0; i < 2400; i++) {
+      x.fillStyle = Math.random() < 0.5 ? '#000' : '#2A2E3A';
+      x.fillRect(Math.random() * 512, Math.random() * 512, 2, 2);
+    }
+    const tex = new T.CanvasTexture(cv);
+    tex.colorSpace = T.SRGBColorSpace;
+    tex.wrapS = tex.wrapT = T.RepeatWrapping;
+    tex.repeat.set(9, 9);
+    tex.anisotropy = 8;
+    const sol = new T.Mesh(
+      new T.CircleGeometry(46, 64),
+      new T.MeshStandardMaterial({ map: tex, roughness: 0.96, metalness: 0.04 }),
+    );
+    sol.rotation.x = -Math.PI / 2;
+    sol.position.y = -1.42;
+    sol.receiveShadow = true;
+    this.groupe.add(sol);
+
+    // le pied et le fût de la table
+    const pied = new T.Mesh(
+      new T.CylinderGeometry(TAPIS_R * 0.30, TAPIS_R * 0.52, 1.4, 40, 1, true),
+      new T.MeshStandardMaterial({ color: 0x17131A, roughness: 0.62, side: T.DoubleSide }),
+    );
+    pied.position.y = -0.72;
+    pied.receiveShadow = true;
+    this.groupe.add(pied);
+    const socle = new T.Mesh(
+      new T.CylinderGeometry(TAPIS_R * 0.56, TAPIS_R * 0.62, 0.16, 40),
+      new T.MeshStandardMaterial({ color: 0x120F16, roughness: 0.7 }),
+    );
+    socle.position.y = -1.35;
+    socle.receiveShadow = true;
+    this.groupe.add(socle);
+
+    // la suspension : l'abat-jour, son intérieur chaud, et le halo au sol
+    const lampe = new T.Group();
+    lampe.position.y = 11.2;
+    this.groupe.add(lampe);
+    const abat = new T.Mesh(
+      new T.ConeGeometry(1.55, 0.95, 44, 1, true),
+      new T.MeshStandardMaterial({ color: 0x1A1D26, roughness: 0.5, metalness: 0.35, side: T.BackSide }),
+    );
+    lampe.add(abat);
+    const dedans = new T.Mesh(
+      new T.ConeGeometry(1.52, 0.92, 44, 1, true),
+      new T.MeshBasicMaterial({ color: 0xFFE9C2, side: T.FrontSide }),
+    );
+    dedans.position.y = 0.02;
+    lampe.add(dedans);
+    const tige = new T.Mesh(
+      new T.CylinderGeometry(0.035, 0.035, 5, 10),
+      new T.MeshStandardMaterial({ color: 0x2A2E3A, roughness: 0.5 }),
+    );
+    tige.position.y = 3.1;
+    lampe.add(tige);
+    const ampoule = new T.PointLight(0xFFF1DC, 165, 30, 2.0);
+    ampoule.position.y = -0.6;
+    lampe.add(ampoule);
+    this.lampe = lampe;
+
+    // un cône de lumière visible, qui donne son épaisseur à l'air de la salle
+    const faisceau = new T.Mesh(
+      new T.ConeGeometry(TAPIS_R * 1.15, 10.4, 40, 1, true),
+      new T.MeshBasicMaterial({
+        color: 0xFFEBC8, transparent: true, opacity: 0.030,
+        side: T.BackSide, depthWrite: false, blending: T.AdditiveBlending,
+      }),
+    );
+    faisceau.position.y = 5.1;
+    this.groupe.add(faisceau);
+
+    // quelques sièges suggérés, pour habiter le pourtour
+    const bois = new T.MeshStandardMaterial({ color: 0x2E2533, roughness: 0.74 });
+    for (let i = 0; i < 10; i++) {
+      const a = (i / 10) * Math.PI * 2 + 0.31;
+      const chaise = new T.Group();
+      chaise.position.set(Math.cos(a) * (TAPIS_R + 2.15), -0.98, Math.sin(a) * (TAPIS_R + 2.15));
+      chaise.rotation.y = -a + Math.PI / 2;
+      const assise = new T.Mesh(new T.BoxGeometry(1.25, 0.18, 1.15), bois);
+      chaise.add(assise);
+      const dossier = new T.Mesh(new T.BoxGeometry(1.25, 1.45, 0.16), bois);
+      dossier.position.set(0, 0.80, -0.52);
+      chaise.add(dossier);
+      for (const [px, pz] of [[-0.5, 0.5], [0.5, 0.5], [-0.5, -0.5], [0.5, -0.5]]) {
+        const p = new T.Mesh(new T.CylinderGeometry(0.07, 0.06, 0.9, 8), bois);
+        p.position.set(px, -0.52, pz);
+        chaise.add(p);
+      }
+      assise.castShadow = dossier.castShadow = true;
+      this.groupe.add(chaise);
+    }
   }
 
   /** Le feutre, sa bordure et la marque au centre. */
@@ -187,8 +307,8 @@ export class Plateau {
     this.groupe.add(feutre);
 
     const bord = new T.Mesh(
-      new T.TorusGeometry(TAPIS_R + 0.06, 0.17, 18, 110),
-      new T.MeshStandardMaterial({ color: 0x2A1216, roughness: 0.42, metalness: 0.25 }),
+      new T.TorusGeometry(TAPIS_R + 0.04, 0.13, 18, 120),
+      new T.MeshStandardMaterial({ color: 0x3A1C22, roughness: 0.38, metalness: 0.28 }),
     );
     bord.rotation.x = -Math.PI / 2;
     bord.position.y = -0.02;
@@ -274,6 +394,14 @@ export class Plateau {
     return m;
   }
 
+  /** Ce que l'interface recouvre, en haut et en bas, en pixels. */
+  reserve(haut, bas) {
+    if (haut === this.margeHaut && bas === this.margeBas) return;
+    this.margeHaut = haut;
+    this.margeBas = bas;
+    this._placeCamera();
+  }
+
   redimensionner() {
     if (!this.pret) return;
     const l = this.canvas.clientWidth || 1, h = this.canvas.clientHeight || 1;
@@ -354,12 +482,18 @@ export class Plateau {
     ajoute(this.pioche.children[this.pioche.children.length - 1], CARTE.l / 2, CARTE.h / 2);
     if (!coins.length) return;
 
+    // La toile occupe tout l'écran, mais l'interface flotte par-dessus : on
+    // garde le jeu dans la bande restée libre entre la barre et les commandes.
+    const h = this.canvas.clientHeight || 1;
+    const hautLibre = 1 - (2 * (this.margeHaut || 0)) / h;
+    const basLibre = 1 - (2 * (this.margeBas || 0)) / h;
     let dist = c.dist;
-    for (let essai = 0; essai < 16; essai++) {
+    for (let essai = 0; essai < 18; essai++) {
       let pire = 0;
       for (const v of coins) {
         const p = v.clone().project(this.camera);
-        pire = Math.max(pire, Math.abs(p.x) - 0.965, Math.abs(p.y) - 0.965);
+        pire = Math.max(pire, Math.abs(p.x) - 0.965,
+          p.y - Math.min(0.965, hautLibre), -p.y - Math.min(0.965, basLibre));
       }
       if (pire <= 0) break;
       dist *= 1 + Math.min(0.12, pire * 0.6);
