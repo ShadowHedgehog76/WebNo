@@ -150,3 +150,9 @@ js/app.js           orchestration hôte / client, boucle IA, câblage
   derrière des réseaux très fermés (NAT symétrique), la connexion directe peut échouer : il faudrait
   alors ajouter un serveur TURN dans `js/net.js`.
 - Si l'hôte quitte, la partie s'arrête : c'est lui qui détient l'état du jeu.
+
+
+## Le plateau
+
+Tout ce qui se joue vit dans une scène **Three.js** ; le DOM ne garde que les
+menus et les commandes. `sh tests/lancer.sh` lance les deux suites.

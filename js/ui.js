@@ -3,9 +3,9 @@ import {
   COLOR_LABEL, isWild, colorsOf, cardCatalog,
   PACKS, packById, MODES, MODE_GROUPS, modesOf, folderOf, modeById, modeId,
   WIN_OPTIONS, winById, winId, BOT_LEVELS, botById,
-} from './deck.js?v=202608221345';
-import { PARTY_CARDS, partyById } from './party.js?v=202608221345';
-import { qrSvg } from './qr.js?v=202608221345';
+} from './deck.js?v=202608241542';
+import { PARTY_CARDS, partyById } from './party.js?v=202608241542';
+import { qrSvg } from './qr.js?v=202608241542';
 
 /** Lien d'invitation d'une room. */
 export function joinUrl(code) {
@@ -503,6 +503,57 @@ function habillerPack(pack) {
   }
 }
 
+/* ─────────────── le pont vers le plateau en volume ───────────────
+   Le rendu ne dessine plus la table : il la décrit à la scène, qui anime la
+   différence entre ce qu'elle montre et ce qui est annoncé. */
+let scene = null;
+let sceneHandlers = null;
+
+/** Installe la scène ; renvoie faux si la machine ne fait pas de 3D. */
+export async function monterPlateau(handlers) {
+  sceneHandlers = handlers;
+  const cv = $('scene3d');
+  if (!cv) return false;
+  try {
+    const { Plateau } = await import('./scene3d.js');
+    scene = new Plateau(cv);
+    if (!scene.demarrer()) { scene = null; throw new Error('WebGL indisponible'); }
+    scene.brancherEntrees();
+    window.__scene = scene;                     // pour les contrôles automatisés
+    // on rattrape l'état arrivé pendant le chargement
+    if (dernierEtat) scene.appliquer(dernierEtat);
+    scene.surCarte = (card) => handlers.onCardClick && handlers.onCardClick(card);
+    scene.surPioche = () => handlers.onDraw && handlers.onDraw();
+    window.addEventListener('resize', () => scene && scene.redimensionner());
+    $('no3d').hidden = true;
+    return true;
+  } catch (e) {
+    $('no3d').hidden = false;
+    document.body.classList.add('sans-3d');
+    return false;
+  }
+}
+
+let dernierEtat = null;
+function plateau3d(state, handlers) {
+  sceneHandlers = handlers;
+  dernierEtat = state;
+  // la scène se charge en différé : les premiers états arrivent avant elle
+  if (!scene) return;
+  scene.appliquer(state);
+}
+
+/** Effets ponctuels demandés par le journal de la partie. */
+export function effetPlateau(nom) {
+  if (!scene) return;
+  if (nom === 'flip') scene.animeRetournement();
+  else if (nom === 'penalty') scene.animePenalite();
+  else if (nom === 'win') scene.animeVictoire();
+}
+
+export function marquerCarte(cardId) { if (scene) scene.selectionne(cardId); }
+export function plateauPret() { return !!scene; }
+
 /** Liste des cartes du paquet choisi, avec ce que chacune fait vraiment. */
 /** Liste des cartes du paquet choisi, avec ce que chacune fait vraiment. */
 function renderCatalog(settings) {
@@ -566,262 +617,26 @@ function renderCatalog(settings) {
 }
 
 /* ───────────────────────────── table de jeu ───────────────────────────── */
-let handEls = new Map();
-let lastTopId = null;
-let lastHandIds = new Set();
 let selectedId = null;
-let seatEls = new Map();
 
-/** Met en avant la carte visée par le clavier. */
+/** Met en avant la carte visée par le clavier — dans la scène, désormais. */
 export function setSelection(id) {
   selectedId = id;
-  for (const [cid, el] of handEls) el.classList.toggle('selected', cid === id);
-  const el = id && handEls.get(id);
-  if (el && el.parentElement && el.parentElement.classList.contains('scroll')) {
-    scrollIntoView(el, { block: 'nearest', inline: 'center', behavior: 'smooth' });
-  }
+  marquerCarte(id);
 }
 export function getSelection() { return selectedId; }
 
 export function resetGameView() {
-  handEls = new Map(); lastTopId = null; lastHandIds = new Set(); selectedId = null;
-  resetSeats();
-  $('hand').innerHTML = '';
-  $('hand').classList.remove('scroll');
-  $('discard-pile').innerHTML = '';
+  selectedId = null;
+  if (scene) scene.reinitialise();
 }
-
-export function resetSeats() { seatEls = new Map(); const h = $('seats'); if (h) h.innerHTML = ''; }
 
 /**
  * Place un adversaire sur l'ellipse. Le joueur occupe le bas de la table ;
  * les autres se répartissent dans l'ordre du jeu sur l'arc qui va de sa
  * gauche à sa droite, en évitant le bas où sa propre main est tenue.
  */
-function seatPosition(rel, total, tout = false) {
-  // en vue « écran », personne n'occupe le bas : les places font le tour complet
-  if (tout) {
-    const a = (rel * 360) / total;
-    const rad = (a * Math.PI) / 180;
-    return { x: 50 - 44 * Math.sin(rad), y: 50 + 40 * Math.cos(rad) };
-  }
-  const n = total - 1;
-  const a = n <= 1 ? 180 : 70 + ((rel - 1) * 220) / (n - 1);
-  const rad = (a * Math.PI) / 180;
-  return { x: 50 - 44 * Math.sin(rad), y: 50 + 40 * Math.cos(rad) };
-}
-
 /** Éventail tenu par un joueur : des dos, ou les faces pour un coéquipier. */
-function renderFan(host, count, cards, verso = false) {
-  const shown = cards ? cards.length : Math.min(count, 12);
-  const key = (cards ? cards.map(faceKey).join(',') : 'dos') + ':' + shown + (verso ? ':v' : '');
-  if (host.dataset.key !== key) {
-    host.dataset.key = key;
-    host.innerHTML = '';
-    for (let i = 0; i < shown; i++) {
-      const c = document.createElement('span');
-      c.className = 'fc';
-      if (cards) {
-        const card = cards[i];
-        c.classList.add('face', isWild(card) ? 'wild' : card.color);
-        if (verso) c.classList.add('verso');
-        const b = document.createElement('b');
-        if (card.value === 'wild' || card.value === 'wildDraw') b.innerHTML = WHEEL;
-        else if (SYMBOL[card.value]) b.innerHTML = SYMBOL[card.value];
-        else if (card.value === 'reverseDraw4') b.innerHTML = SYMBOL.reverse;
-        else b.textContent = GLYPH[card.value] ?? card.value;
-        c.appendChild(b);
-      }
-      host.appendChild(c);
-    }
-  }
-  const step = Math.min(13, 64 / Math.max(shown, 1));
-  const ecart = Math.min(14, 92 / Math.max(shown, 1));
-  const mid = (shown - 1) / 2;
-  [...host.children].forEach((el, i) => {
-    el.style.setProperty('--a', ((i - mid) * step).toFixed(2) + 'deg');
-    el.style.setProperty('--x', ((i - mid) * ecart).toFixed(1) + 'px');
-    el.style.zIndex = String(i);
-  });
-}
-
-function renderOpponent(box, p, state, handlers) {
-  const me = state.players.find((x) => x.id === state.you);
-  const ally = state.settings.mode === 'team' && me && p.team === me.team;
-  box.classList.toggle('active', state.turnId === p.id);
-  box.classList.toggle('ally', ally);
-  box.classList.toggle('offline', !p.connected);
-  box.classList.toggle('out', !!p.out);
-
-  const av = box.querySelector('.pb-avatar');
-  av.textContent = (p.name || '?').slice(0, 1).toUpperCase();
-  av.style.background = AV_COLORS[p.seat % 4];
-  av.style.color = p.seat % 4 === 3 ? '#2E2400' : '#fff';
-  box.querySelector('.pb-name').textContent = p.name;
-  box.querySelector('.pb-count').textContent = p.handCount;
-
-  // en équipe on voit la face active du coéquipier ; en pack Flip, chacun
-  // voit l'autre face des cartes que les autres tiennent devant eux
-  const revealed = (ally && state.allyHands && state.allyHands[p.id]) || p.backs || null;
-  renderFan(box.querySelector('.hand-fan'), p.handCount, revealed, !!p.backs && !ally);
-
-  const meta = box.querySelector('.pb-meta');
-  meta.innerHTML = '';
-  const bit = (cls, text) => {
-    const el = document.createElement('span');
-    el.className = 'pm ' + cls;
-    el.textContent = text;
-    meta.appendChild(el);
-  };
-  bit('pm-score', `${p.score} pt`);
-  if (state.settings.mode === 'team') bit('pm-side', ally ? 'Coéquipier' : 'Adverse');
-  if (p.out) bit('pm-out', 'éliminé');
-  if (p.isBot) bit('pm-bot', 'Bot');
-  if (!p.connected) bit('dc-badge', 'hors ligne');
-
-  const old = box.parentElement.querySelector('.uno-badge');
-  if (old) old.remove();
-  if (p.handCount === 1) {
-    const b = document.createElement('span');
-    b.className = 'uno-badge';
-    if (state.calloutTargets.includes(p.id)) {
-      b.classList.add('callable');
-      b.textContent = 'DÉNONCER';
-      b.onclick = () => handlers.onCallout && handlers.onCallout(p.id);
-    } else b.textContent = 'UNO';
-    box.appendChild(b);
-  }
-}
-
-function renderSeats(state, handlers) {
-  const host = $('seats');
-  const me = state.players.find((p) => p.id === state.you);
-  const mySeat = me ? me.seat : -1;
-  const n = state.players.length;
-  const autres = state.players
-    .filter((p) => p.id !== state.you)
-    .map((p) => ({ p, rel: ((p.seat - mySeat) % n + n) % n }))
-    .sort((a, b) => a.rel - b.rel);
-
-  host.dataset.n = String(n);
-  const ecran = !!state.party && !!state.spectator;
-  const vus = new Set();
-  autres.forEach(({ p, rel }) => {
-    vus.add(p.id);
-    let box = seatEls.get(p.id);
-    if (!box) {
-      box = document.createElement('div');
-      box.className = 'seat';
-      box.innerHTML = '<div class="player-box"><div class="pb-head"><span class="pb-avatar"></span>'
-        + '<span class="pb-name"></span><span class="pb-count"></span></div>'
-        + '<div class="hand-fan"></div><div class="pb-meta"></div></div>';
-      host.appendChild(box);
-      seatEls.set(p.id, box);
-    }
-    const { x, y } = seatPosition(ecran ? rel - 1 : rel, ecran ? autres.length : n, ecran);
-    box.style.left = x.toFixed(2) + '%';
-    box.style.top = y.toFixed(2) + '%';
-    renderOpponent(box.firstElementChild, p, state, handlers);
-  });
-  for (const [id, el] of seatEls) {
-    if (!vus.has(id)) { el.remove(); seatEls.delete(id); }
-  }
-}
-
-function renderHand(state, handlers) {
-  renderHandInto($('hand'), state, handlers);
-}
-
-function renderHandInto(host, state, handlers) {
-  if (!host) return;
-  const ids = new Set(state.hand.map((c) => c.id));
-  for (const [id, el] of handEls) {
-    if (!ids.has(id)) { el.remove(); handEls.delete(id); }
-  }
-
-  // 1) on crée les cartes manquantes, et on redessine celles qui ont changé
-  //    de face — c'est le cas de toute la main après un retournement.
-  state.hand.forEach((card) => {
-    const sig = faceKey(card);
-    const ancien = handEls.get(card.id);
-    if (ancien && ancien.dataset.face === sig) return;
-    const el = cardEl(card);
-    el.dataset.face = sig;
-    if (!ancien && lastHandIds.size) el.classList.add('dealt');
-    el.addEventListener('click', () => handlers.onCardClick && handlers.onCardClick(card, el));
-    if (ancien) { ancien.replaceWith(el); } else { host.appendChild(el); }
-    handEls.set(card.id, el);
-  });
-
-  // 2) on mesure une carte réelle : aucune supposition sur la taille
-  const n = state.hand.length;
-  const first = host.firstElementChild;
-  const cw = (first && first.offsetWidth) || 92;
-  const avail = host.clientWidth || host.getBoundingClientRect().width || window.innerWidth || 800;
-
-  // Les cartes pivotent autour d'un point situé sous la main (transform-origin
-  // 50% 168%) : l'inclinaison les déporte latéralement en plus de leur écart.
-  // Sans en tenir compte, les cartes des extrémités sortent de l'écran.
-  const angStepFor = (k) => Math.min(5.5, 40 / Math.max(k, 1));
-  const arcSpread = (k) => {
-    if (k < 2) return 0;
-    const half = angStepFor(k) * (k - 1) / 2;
-    return 1.18 * (cw * 1.5) * Math.sin(half * Math.PI / 180);
-  };
-  const room = Math.max(120, avail - cw - 24 - 2 * arcSpread(n));
-  const raw = n > 1 ? room / (n - 1) : Infinity;
-
-  // 3) éventail tant que les cartes restent lisibles, sinon bande défilante.
-  //    Les deux seuils diffèrent pour éviter tout clignotement.
-  const wasScroll = host.classList.contains('scroll');
-  const scroll = wasScroll ? raw < cw * 0.50 : raw < cw * 0.44;
-  host.classList.toggle('scroll', scroll);
-
-  const maxStep = cw * 0.78;
-  const step = scroll ? 0 : (n > 1 ? Math.max(16, Math.min(maxStep, raw)) : 0);
-  const angStep = scroll ? 0 : angStepFor(n);
-  const mid = (n - 1) / 2;
-  const myTurn = state.turnId === state.you;
-
-  state.hand.forEach((card, i) => {
-    const el = handEls.get(card.id);
-    el.style.setProperty('--x', ((i - mid) * step).toFixed(1) + 'px');
-    el.style.setProperty('--a', ((i - mid) * angStep).toFixed(2) + 'deg');
-    el.style.zIndex = String(i);
-    const legal = state.legal.includes(card.id);
-    el.classList.toggle('playable', legal);
-    el.classList.toggle('jump', legal && !myTurn);
-    el.classList.toggle('dim', !legal && myTurn && state.phase === 'playing');
-  });
-
-  if (selectedId && !ids.has(selectedId)) selectedId = null;
-  for (const [cid, el] of handEls) el.classList.toggle('selected', cid === selectedId);
-  lastHandIds = ids;
-}
-
-function renderDiscard(state) {
-  const pile = $('discard-pile');
-  pile.className = 'pile discard glow-' + state.currentColor;
-  if (!state.top) return;
-  const topSig = state.top.id + '|' + faceKey(state.top);
-  if (topSig !== lastTopId) {
-    const el = cardEl(state.top);
-    el.classList.add('newest');
-    el.style.setProperty('--rot', (Math.random() * 26 - 13).toFixed(1) + 'deg');
-    el.style.transform = `rotate(${el.style.getPropertyValue('--rot')})`;
-    pile.appendChild(el);
-    while (pile.childElementCount > 5) pile.firstElementChild.remove();
-    lastTopId = topSig;
-  } else {
-    const last = pile.lastElementChild;
-    if (last && state.top.chosen) {
-      let dot = last.querySelector('.chosen-dot');
-      if (!dot) { dot = document.createElement('span'); last.appendChild(dot); }
-      dot.className = 'chosen-dot dot-' + state.top.chosen;
-    }
-  }
-}
-
 export function renderGame(state, handlers = {}) {
   // HUD
   $('hud-round').textContent = 'Manche ' + state.roundNo;
@@ -834,19 +649,12 @@ export function renderGame(state, handlers = {}) {
   document.body.classList.toggle('is-party', party);
   document.body.classList.toggle('is-screen', party && !!state.spectator);
   document.body.classList.toggle('is-pad', party && !state.spectator);
-  renderSeats(state, handlers);
+  plateau3d(state, handlers);
   renderKnocked(state);
   renderPartyScreen(state);
   renderPad(state, handlers);
   setTurnDeadline(state.party && state.phase === 'playing' ? state.turnLeft : null);
 
-  // centre
-  renderDiscard(state);
-  $('deck-count').textContent = state.deckCount;
-  $('deck-pile').classList.toggle('can-draw', state.canDraw || (state.pendingDraw > 0 && state.turnId === state.you));
-  $('dir-ring').classList.toggle('ccw', state.direction === -1);
-  const table = $('table3d');
-  if (table) table.style.setProperty('--play-color', COLOR_HEX[state.currentColor] || 'rgba(255,255,255,.2)');
   document.body.classList.toggle('dark-side', state.side === 'dark');
   habillerPack(state.pack);
 
@@ -870,7 +678,6 @@ export function renderGame(state, handlers = {}) {
     } else teamEl.hidden = true;
   }
   $('turn-flag').hidden = state.turnId !== state.you;
-  renderHand(state, handlers);
 
   // actions
   const myTurn = state.turnId === state.you && state.phase === 'playing';
@@ -1013,7 +820,7 @@ function renderPad(state, handlers) {
   flag.classList.toggle('on', monTour);
   pad.classList.toggle('my-turn', monTour);
 
-  renderHandInto($('pad-hand'), state, handlers);
+  // la main du joueur vit dans la scène, ici en vue rapprochée
 
   $('pad-draw').disabled = !(state.canDraw || (monTour && state.pendingDraw > 0));
   $('pad-draw').textContent = monTour && state.pendingDraw > 0 ? `Piocher ${state.pendingDraw}` : 'Piocher';

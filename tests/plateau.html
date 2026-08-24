@@ -1,0 +1,128 @@
+<!DOCTYPE html><html><head><meta charset="utf-8"><title>tests plateau</title>
+<style>body{margin:0;background:#0B0C13;color:#DDE3EC;font:12px/1.5 monospace;padding:14px}
+iframe{position:absolute;left:-3000px;width:1200px;height:800px;border:0}
+.ok{color:#2ED47B}.ko{color:#FF6B62}h3{color:#FFC900;margin:14px 0 4px;font-size:12px}</style>
+</head><body><div id="out">…</div><script type="module">
+// Les tests du plateau tournent dans un vrai navigateur : la 3D a besoin
+// d'un contexte WebGL, qu'aucun simulateur DOM ne fournit.
+const out = document.getElementById('out');
+let pass = 0, fail = 0;
+const L = [];
+const dit = (h) => L.push(`<h3>${h}</h3>`);
+const ok = (c, l, e = '') => {
+  c ? pass++ : fail++;
+  L.push(`<div class="${c ? 'ok' : 'ko'}">${c ? '✓' : '✗'} ${l}${!c && e ? ' → ' + e : ''}</div>`);
+  out.innerHTML = L.join('');
+};
+const attends = (ms) => new Promise((r) => setTimeout(r, ms));
+
+const cadre = document.createElement('iframe');
+cadre.src = '../index.html';
+document.body.appendChild(cadre);
+await new Promise((r) => { cadre.onload = r; });
+const w = cadre.contentWindow, d = cadre.contentDocument;
+const erreurs = [];
+w.onerror = (m) => erreurs.push(m);
+w.addEventListener('unhandledrejection', (e) => erreurs.push(String(e.reason)));
+w.Peer = class {
+  constructor(id) { this._h = {}; setTimeout(() => (this._h.open || []).forEach((f) => f(id)), 0); }
+  on(e, f) { (this._h[e] = this._h[e] || []).push(f); }
+  destroy() {}
+};
+const $ = (id) => d.getElementById(id);
+
+dit('Une partie démarre');
+d.getElementById('input-name').value = 'Test';
+$('btn-create').click();
+await attends(220);
+$('btn-fill-bots').click();
+await attends(120);
+$('btn-start').click();
+await attends(900);
+const app = w.__webno, g = app.host.game;
+if (app.host.pump) { clearInterval(app.host.pump); app.host.pump = null; }
+ok(!!g, 'la partie est en cours');
+const sc = w.__scene;
+ok(!!sc, 'la scène 3D est montée');
+ok(sc && sc.pret, 'et le rendu fonctionne');
+ok($('scene3d') && $('no3d').hidden, 'la toile a pris la place du plateau');
+ok(!d.querySelector('#hand .card'), 'plus aucune carte dans le DOM');
+
+dit('La table');
+sc.finirAnimations();
+ok(sc.pioche.children.length > 2, 'la pioche est empilée', String(sc.pioche.children.length));
+ok(sc.defausse.children.length >= 1, 'la défausse porte au moins une carte');
+ok(sc.dossiers.size === 3, 'trois adversaires sont assis', String(sc.dossiers.size));
+ok(sc.anneau.children.length === 8, 'l\'anneau de sens tourne autour');
+{
+  const places = [...sc.dossiers.values()].map((x) => x.racine.position);
+  ok(places.every((p) => p.z < 0.6), 'les adversaires occupent le fond de la table');
+  const xs = places.map((p) => p.x).sort((a, b) => a - b);
+  ok(xs[xs.length - 1] - xs[0] > 3, 'et se répartissent en largeur', xs.map((v) => v.toFixed(1)).join(', '));
+  ok([...sc.dossiers.values()].every((x) => x.etiquette), 'chacun porte sa plaque');
+}
+
+dit('Ma main');
+{
+  g.players[0].hand = [['red','5'],['blue','9'],['green','skip'],['wild','wild4']]
+    .map(([c, v], i) => ({ id: 'm' + i, color: c, value: v }));
+  g.discard = [{ id: 'top', color: 'red', value: '3' }];
+  g.currentColor = 'red';
+  g.turnIndex = 0;
+  app.host.afterChange();
+  await attends(60);
+  sc.finirAnimations();
+  ok(sc.cartes.size === 4, 'quatre cartes en main dans la scène', String(sc.cartes.size));
+  const mains = [...sc.cartes.values()];
+  ok(mains.every((m) => m.position.z > 2.5), 'posées devant le joueur');
+  ok(mains.every((m) => m.rotation.x > 0), 'inclinées face à la caméra');
+  const xs = mains.map((m) => m.position.x);
+  ok(new Set(xs.map((v) => v.toFixed(2))).size === 4, 'étalées en éventail, sans se superposer');
+  const eteintes = mains.filter((m) => m.material[2].color.getHex() !== 0xFFFFFF);
+  ok(eteintes.length === 2, 'les deux cartes injouables sont éteintes', String(eteintes.length));
+}
+
+dit('Poser une carte');
+{
+  const avant = sc.defausse.children.length;
+  const dessus = sc.defausse.children[avant - 1];
+  g.handle('p0', { type: 'play', cardId: 'm0' });
+  app.host.afterChange();
+  await attends(60);
+  sc.finirAnimations();
+  ok(sc.cartes.size === 3, 'la carte quitte la main', String(sc.cartes.size));
+  const neuf = sc.defausse.children[sc.defausse.children.length - 1];
+  ok(neuf !== dessus, 'et se retrouve sur la défausse');
+  ok(Math.abs(neuf.position.x) < 0.2 && Math.abs(neuf.position.z) < 0.2, 'bien au centre de la pile');
+}
+
+dit('Piocher');
+{
+  const avant = sc.cartes.size;
+  g.turnIndex = 0;
+  g.handle('p0', { type: 'draw' });
+  app.host.afterChange();
+  await attends(60);
+  sc.finirAnimations();
+  ok(sc.cartes.size === avant + 1, 'la main s\'agrandit d\'une carte', String(sc.cartes.size));
+}
+
+dit('Le paquet Flip');
+{
+  app.host.settings.pack = 'flip';
+  g.settings.pack = 'flip';
+  g.side = 'dark';
+  app.host.afterChange();
+  await attends(60);
+  sc.finirAnimations();
+  ok(sc.side === 'dark', 'la scène suit le côté sombre');
+  ok(sc.pack === 'flip', 'et le paquet en cours');
+}
+
+dit('Rien n\'a cassé');
+ok(erreurs.length === 0, 'aucune erreur JavaScript', erreurs.slice(0, 2).join(' | '));
+
+L.push(`<h3>${pass} tests réussis, ${fail} échec(s).</h3>`);
+out.innerHTML = L.join('');
+document.title = fail ? 'ECHEC:' + fail : 'OK:' + pass;
+</script></body></html>

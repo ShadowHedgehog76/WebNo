@@ -1,10 +1,10 @@
 // app.js — orchestration : accueil, salon, boucle hôte (moteur + IA), client
-import { UnoGame, DEFAULT_SETTINGS } from './engine.js?v=202608221345';
-import { botDecide, botJumpIn, botCallout, botDelay, botProfile } from './bot.js?v=202608221345';
-import { HostNet, ClientNet, normalizeCode, codeFromScan } from './net.js?v=202608221345';
-import { isWild } from './deck.js?v=202608221345';
-import * as ui from './ui.js?v=202608221345';
-import * as audio from './audio.js?v=202608221345';
+import { UnoGame, DEFAULT_SETTINGS } from './engine.js?v=202608241542';
+import { botDecide, botJumpIn, botCallout, botDelay, botProfile } from './bot.js?v=202608241542';
+import { HostNet, ClientNet, normalizeCode, codeFromScan } from './net.js?v=202608241542';
+import { isWild } from './deck.js?v=202608241542';
+import * as ui from './ui.js?v=202608241542';
+import * as audio from './audio.js?v=202608241542';
 
 const $ = (id) => document.getElementById(id);
 const BOT_NAMES = ['Léa', 'Max', 'Zoé', 'Nino', 'Iris', 'Sacha', 'Milo', 'Nora', 'Tao', 'Lila',
@@ -511,6 +511,9 @@ const TOASTABLE = {
   jump: '', challenge: 'warn', win: 'big', gameover: 'big', effect: '',
 };
 
+/** Certains évènements se voient sur le plateau, pas seulement s'entendent. */
+const EVENT_3D = { flip: 'flip', penalty: 'penalty', challenge: 'penalty', win: 'win' };
+
 // un bruitage par type d'évènement du journal
 const EVENT_SFX = {
   play: 'play', draw: 'draw', penalty: 'penalty', callout: 'penalty',
@@ -519,7 +522,19 @@ const EVENT_SFX = {
   launcher: 'shuffle', out: 'lose', party: 'swap', shield: 'uno', timeout: 'error',
 };
 
+let plateauMonte = false;
+/** Monte la scène au premier état : avant, la toile n'a pas encore de taille. */
+function assurePlateau() {
+  if (plateauMonte) return;
+  plateauMonte = true;
+  ui.monterPlateau({
+    onCardClick: (card) => onCardClick(card),
+    onDraw: () => { if (!$('btn-draw').disabled) send({ type: 'draw' }); },
+  });
+}
+
 function applyState(s) {
+  assurePlateau();
   const prev = App.view;
   App.view = s;
   App.myId = s.you;
@@ -532,6 +547,7 @@ function applyState(s) {
       ui.toast(e.text, TOASTABLE[e.type]);
     }
     if (EVENT_SFX[e.type]) { audio.sfx(EVENT_SFX[e.type], delay); delay += 0.06; }
+    if (EVENT_3D[e.type]) ui.effetPlateau(EVENT_3D[e.type]);
   }
   if (prev && prev.turnId !== s.turnId && s.turnId === s.you && s.phase === 'playing') audio.sfx('turn');
   if (prev && prev.side && s.side && prev.side !== s.side) ui.flipAnnounce(s.side);
@@ -804,10 +820,6 @@ function wireSound() {
 
 function wireGame() {
   $('btn-draw').onclick = () => send({ type: 'draw' });
-  $('deck-pile').onclick = () => {
-    const s = App.view;
-    if (s && s.turnId === s.you && (s.canDraw || s.pendingDraw > 0)) send({ type: 'draw' });
-  };
   $('btn-pass').onclick = () => send({ type: 'pass' });
   $('btn-challenge').onclick = () => send({ type: 'challenge' });
   $('btn-uno').onclick = () => {

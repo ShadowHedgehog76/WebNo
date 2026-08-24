@@ -224,8 +224,11 @@ body.muted .sound-btn .ico-on { display: none; }
 .home-facts b { color: var(--txt); font-weight: 600; }
 
 /* ══════════════════════ salon ══════════════════════ */
-#screen-lobby { overflow-y: auto; }
-.lobby-wrap { max-width: 1020px; margin: 0 auto; padding: 26px 20px 40px; min-height: 100%; display: flex; flex-direction: column; }
+/* Le salon tient toujours à l'écran : ce sont les colonnes qui défilent,
+   chacune de leur côté. Ainsi le pied reste dégagé et ne recouvre jamais
+   les commandes d'un panneau. */
+#screen-lobby { overflow: hidden; }
+.lobby-wrap { max-width: 1020px; margin: 0 auto; padding: 22px 20px 14px; height: 100%; display: flex; flex-direction: column; }
 .lobby-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 20px; margin-bottom: 20px; flex-wrap: wrap; padding-right: 64px; }
 .lobby-head h2 { font-family: var(--display); font-size: 30px; font-style: italic; letter-spacing: -.01em; }
 .sub { color: var(--muted); font-size: 13.5px; margin-top: 4px; max-width: 44ch; }
@@ -242,10 +245,12 @@ body.muted .sound-btn .ico-on { display: none; }
 }
 
 .lobby-grid {
-  display: grid; gap: 18px; flex: 1; align-items: start;
+  /* « stretch » est indispensable : sans lui les panneaux prennent leur
+     hauteur naturelle et débordent de la grille au lieu de défiler. */
+  display: grid; gap: 18px; flex: 1; min-height: 0; align-items: stretch;
   grid-template-columns: 1fr 1.1fr;
   grid-template-areas: "code reglages" "joueurs reglages";
-  grid-template-rows: auto 1fr;
+  grid-template-rows: auto minmax(0, 1fr);
 }
 .join-panel { grid-area: code; }
 .players-panel { grid-area: joueurs; }
@@ -257,12 +262,29 @@ body.muted .sound-btn .ico-on { display: none; }
 
 /* le bloc code, désormais dans un panneau, s'y étale */
 .join-panel .code-box { display: grid; justify-items: center; padding: 14px 18px 16px; }
-.join-panel .qr { width: min(154px, 100%); height: auto; aspect-ratio: 1; }
-.join-panel .code-value { font-size: 30px; margin: 2px 0 8px; }
-.join-panel .qr-hint { font-size: 11px; }
+/* Le bloc code ouvre la colonne : compact, pour que la liste des joueurs et
+   ses commandes tiennent sous lui sans passer derrière le pied. */
+.join-panel { padding: 14px 18px 16px; }
+.join-panel h3 { margin-bottom: 8px; }
+.join-panel .code-box { padding: 10px 16px 12px; }
+.join-panel .qr { width: min(128px, 100%); height: auto; aspect-ratio: 1; }
+.join-panel .code-value { font-size: 26px; margin: 1px 0 6px; letter-spacing: .12em; }
+.join-panel .qr-hint { font-size: 10.5px; margin: 6px 0 8px; }
+.join-panel .code-label { font-size: 9.5px; }
+.players-panel { padding: 16px 18px 18px; }
+.players-panel h3 { margin-bottom: 10px; }
 /* le pied colle en bas et flotte sur le contenu : la grille lui réserve
    sa hauteur, sinon il rogne le dernier élément de chaque colonne */
-.lobby-grid { padding-bottom: 76px; }
+.lobby-grid { gap: 14px; min-height: 0; }
+/* chaque panneau défile dans sa propre boîte */
+.players-panel, #settings-panel, #code-panel {
+  min-height: 0; max-height: 100%; overflow-y: auto;
+  scrollbar-width: thin; scrollbar-color: rgba(255,255,255,.2) transparent;
+}
+.players-panel::-webkit-scrollbar, #settings-panel::-webkit-scrollbar,
+#code-panel::-webkit-scrollbar { width: 5px; }
+.players-panel::-webkit-scrollbar-thumb, #settings-panel::-webkit-scrollbar-thumb,
+#code-panel::-webkit-scrollbar-thumb { background: rgba(255,255,255,.2); border-radius: 3px; }
 .panel {
   background: rgba(11,12,19,.72); border: 1px solid var(--line);
   border-radius: 20px; padding: 20px 22px; backdrop-filter: blur(12px);
@@ -321,10 +343,9 @@ body.muted .sound-btn .ico-on { display: none; }
 .settings.locked { opacity: .7; pointer-events: none; }
 
 .lobby-foot {
-  position: sticky; bottom: 0; z-index: 5;
+  flex: none; z-index: 5;
   display: flex; align-items: center; justify-content: space-between; gap: 16px;
-  margin: 22px -20px -40px; padding: 16px 20px 20px; flex-wrap: wrap;
-  background: linear-gradient(to top, rgba(6,7,12,.97) 55%, rgba(6,7,12,0));
+  margin: 14px 0 0; padding: 0; flex-wrap: wrap;
 }
 .status { color: var(--muted); font-size: 13px; flex: 1; text-align: center; min-width: 180px; }
 
@@ -2122,3 +2143,30 @@ body.is-out .turn-flag, body.is-out .pad-turn { display: none; }
 @media (prefers-reduced-motion: reduce) {
   .kn-stream, .kn-text b { animation: none !important; }
 }
+
+/* ══════════════════════ le plateau en volume ══════════════════════
+   La toile prend toute la place laissée par les commandes. Le DOM ne garde
+   que les menus, la barre du haut et les boutons d'action.            */
+.scene3d {
+  position: absolute; inset: 52px 0 var(--zone-h, 210px) 0;
+  width: 100%; height: auto; display: block;
+  touch-action: none;                 /* le doigt vise, il ne fait pas défiler */
+}
+body.is-screen .scene3d { inset: 52px 0 92px 0; }
+/* la manette montre la même scène, mais cadrée sur la main */
+body.is-pad .scene3d { inset: 40px 0 62px 0; }
+body.is-pad .pad-hand { display: none; }
+body.is-pad .pad { background: none; pointer-events: none; }
+body.is-pad .pad-top, body.is-pad .pad-actions { pointer-events: auto; }
+.no3d {
+  position: absolute; top: 42%; left: 50%; translate: -50% 0; z-index: 3;
+  max-width: 30ch; text-align: center; color: var(--muted); font-size: 14px;
+  line-height: 1.5; padding: 14px 18px; border-radius: 14px;
+  background: rgba(10,12,18,.9); border: 1px solid var(--line);
+}
+.no3d[hidden] { display: none; }
+
+/* la zone du bas ne montre plus les cartes : elle commande */
+.myzone { --zone-h: 210px; }
+.hand { display: none; }
+.myzone .actions { margin-top: 0; }

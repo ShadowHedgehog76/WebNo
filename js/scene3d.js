@@ -1,0 +1,784 @@
+// scene3d.js — le plateau et les cartes, en volume.
+//
+// Le DOM ne garde que les menus : tout ce qui se joue vit ici. La scène est
+// pilotée par l'état que l'hôte diffuse ; elle ne décide de rien, elle montre.
+
+import * as T from './vendor/three.module.min.js';
+import { peindreFace, peindreDos } from './cardtex.js?v=202608241542';
+
+/* ─────────────── réglages ─────────────── */
+const CARTE = { l: 1, h: 1.5, e: 0.014 };     // largeur, hauteur, épaisseur
+const TAPIS_R = 5.2;                           // rayon du feutre
+const DUREE = { pose: 460, pioche: 400, donne: 300, retour: 520 };
+
+/* ─────────────── petites animations ───────────────
+   Trois courbes suffisent : une pour poser, une pour rebondir, une pour
+   revenir en douceur. Pas de bibliothèque, la boucle de rendu s'en charge. */
+const facile = {
+  doux: (t) => 1 - Math.pow(1 - t, 3),
+  ressort: (t) => 1 - Math.pow(2, -9 * t) * Math.cos(t * 13),
+  rond: (t) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2),
+};
+
+let tweens = [];
+/** Anime des propriétés d'un objet ; renvoie une promesse. */
+function anime(cible, vers, duree = 400, courbe = 'doux', retard = 0) {
+  return new Promise((fini) => {
+    const depart = {};
+    tweens.push({
+      demarre: null, retard, duree, courbe, cible, vers, depart, fini,
+    });
+  });
+}
+function avanceTweens(now) {
+  if (!tweens.length) return;
+  const restants = [];
+  for (const tw of tweens) {
+    if (tw.demarre === null) tw.demarre = now + tw.retard;
+    if (now < tw.demarre) { restants.push(tw); continue; }
+    if (!tw.pret) {
+      for (const cle in tw.vers) {
+        const [obj, prop] = cheminDe(tw.cible, cle);
+        tw.depart[cle] = obj[prop];
+      }
+      tw.pret = true;
+    }
+    const t = Math.min(1, (now - tw.demarre) / tw.duree);
+    const k = facile[tw.courbe](t);
+    for (const cle in tw.vers) {
+      const [obj, prop] = cheminDe(tw.cible, cle);
+      obj[prop] = tw.depart[cle] + (tw.vers[cle] - tw.depart[cle]) * k;
+    }
+    if (t < 1) restants.push(tw); else tw.fini();
+  }
+  tweens = restants;
+}
+function cheminDe(cible, cle) {
+  const bouts = cle.split('.');
+  let obj = cible;
+  for (let i = 0; i < bouts.length - 1; i++) obj = obj[bouts[i]];
+  return [obj, bouts[bouts.length - 1]];
+}
+function stopTweens() { tweens = []; }
+
+/** Saute à la fin de toutes les animations en cours. */
+function finisTweens() {
+  for (const tw of tweens) {
+    for (const cle in tw.vers) {
+      const [obj, prop] = cheminDe(tw.cible, cle);
+      obj[prop] = tw.vers[cle];
+    }
+    tw.fini();
+  }
+  tweens = [];
+}
+
+/* ─────────────── la scène ─────────────── */
+export class Plateau {
+  constructor(canvas) {
+    this.canvas = canvas;
+    this.pret = false;
+    this.cartes = new Map();       // id → mesh
+    this.dossiers = new Map();     // id → { racine, etiquette }
+    this.etat = null;
+    this.pack = 'classic';
+    this.side = 'light';
+    this.surCarte = null;          // rappel au clic
+    this.surPioche = null;
+    this.survolee = null;
+    this.mesTuiles = [];
+    this._boucle = this._boucle.bind(this);
+  }
+
+  /** Prépare le rendu. Renvoie faux si la machine ne sait pas faire de 3D. */
+  demarrer() {
+    try {
+      this.renderer = new T.WebGLRenderer({
+        canvas: this.canvas, antialias: true, alpha: true,
+        powerPreference: 'high-performance',
+      });
+    } catch (_) { return false; }
+    if (!this.renderer) return false;
+
+    this.renderer.setPixelRatio(Math.min(devicePixelRatio || 1, 2));
+    this.renderer.shadowMap.enabled = true;
+    this.renderer.shadowMap.type = T.PCFSoftShadowMap;
+
+    this.scene = new T.Scene();
+    this.camera = new T.PerspectiveCamera(42, 1, 0.1, 80);
+    this.groupe = new T.Group();
+    this.scene.add(this.groupe);
+
+    this._lumieres();
+    this._tapis();
+    this._piles();
+    this._fleches();
+
+    this.horloge = new T.Clock();
+    this.rayon = new T.Raycaster();
+    this.souris = new T.Vector2();
+    this.redimensionner();
+    this.pret = true;
+    this.renderer.setAnimationLoop(this._boucle);
+    return true;
+  }
+
+  _lumieres() {
+    this.scene.add(new T.HemisphereLight(0xBFD4FF, 0x0A1810, 0.85));
+    const cle = new T.DirectionalLight(0xFFF4E2, 1.5);
+    cle.position.set(-3.5, 8, 4.5);
+    cle.castShadow = true;
+    cle.shadow.mapSize.set(1024, 1024);
+    cle.shadow.camera.near = 1;
+    cle.shadow.camera.far = 24;
+    const c = cle.shadow.camera;
+    c.left = -8; c.right = 8; c.top = 8; c.bottom = -8;
+    cle.shadow.bias = -0.0012;
+    this.scene.add(cle);
+    const appoint = new T.DirectionalLight(0x88AAFF, 0.35);
+    appoint.position.set(5, 4, -5);
+    this.scene.add(appoint);
+  }
+
+  /** Le feutre, sa bordure et la marque au centre. */
+  _tapis() {
+    const cv = document.createElement('canvas');
+    cv.width = cv.height = 1024;
+    const x = cv.getContext('2d');
+    const g = x.createRadialGradient(512, 400, 40, 512, 512, 620);
+    g.addColorStop(0, '#1E7A4C');
+    g.addColorStop(0.55, '#136A40');
+    g.addColorStop(1, '#06301F');
+    x.fillStyle = g;
+    x.fillRect(0, 0, 1024, 1024);
+    // grain, pour que le feutre ne soit pas une surface morte
+    x.globalAlpha = 0.045;
+    for (let i = 0; i < 5200; i++) {
+      x.fillStyle = i % 2 ? '#000' : '#9FE8C0';
+      x.fillRect(Math.random() * 1024, Math.random() * 1024, 2, 2);
+    }
+    x.globalAlpha = 1;
+    x.strokeStyle = 'rgba(255,255,255,.13)';
+    x.lineWidth = 3;
+    x.setLineDash([14, 12]);
+    x.beginPath(); x.arc(512, 512, 388, 0, Math.PI * 2); x.stroke();
+    x.setLineDash([]);
+    x.save();
+    x.translate(512, 512);
+    x.rotate(-0.3);
+    x.globalAlpha = 0.07;
+    x.font = 'italic 900 190px "Arial Black", Arial, sans-serif';
+    x.textAlign = 'center'; x.textBaseline = 'middle';
+    x.fillStyle = '#FFFFFF';
+    x.fillText('WebNo', 0, 0);
+    x.restore();
+
+    const tex = new T.CanvasTexture(cv);
+    tex.colorSpace = T.SRGBColorSpace;
+    tex.anisotropy = 8;
+    const feutre = new T.Mesh(
+      new T.CircleGeometry(TAPIS_R, 96),
+      new T.MeshStandardMaterial({ map: tex, roughness: 0.94, metalness: 0 }),
+    );
+    feutre.rotation.x = -Math.PI / 2;
+    feutre.receiveShadow = true;
+    this.groupe.add(feutre);
+
+    const bord = new T.Mesh(
+      new T.TorusGeometry(TAPIS_R + 0.06, 0.17, 18, 110),
+      new T.MeshStandardMaterial({ color: 0x2A1216, roughness: 0.42, metalness: 0.25 }),
+    );
+    bord.rotation.x = -Math.PI / 2;
+    bord.position.y = -0.02;
+    bord.castShadow = bord.receiveShadow = true;
+    this.groupe.add(bord);
+  }
+
+  /** Pioche et défausse, au centre. */
+  _piles() {
+    this.pioche = new T.Group();
+    this.pioche.position.set(-0.92, 0, 0);
+    this.groupe.add(this.pioche);
+    this.defausse = new T.Group();
+    this.defausse.position.set(0.92, 0, 0);
+    this.groupe.add(this.defausse);
+    this._refaitPioche(24);
+  }
+
+  _refaitPioche(n) {
+    while (this.pioche.children.length) {
+      const m = this.pioche.children.pop();
+      m.geometry.dispose?.();
+    }
+    const hauteur = Math.max(3, Math.min(26, n));
+    for (let i = 0; i < hauteur; i++) {
+      const m = this._mesh(null, true);
+      m.position.y = i * CARTE.e * 1.05 + 0.01;
+      m.rotation.y = (Math.random() - 0.5) * 0.03;
+      m.userData.pioche = true;
+      this.pioche.add(m);
+    }
+  }
+
+  /** L'anneau qui dit dans quel sens on tourne. */
+  _fleches() {
+    this.anneau = new T.Group();
+    this.groupe.add(this.anneau);
+    const forme = new T.Shape();
+    forme.moveTo(0, 0.30); forme.lineTo(-0.22, -0.10);
+    forme.lineTo(0, 0.02); forme.lineTo(0.22, -0.10);
+    forme.closePath();
+    const geo = new T.ExtrudeGeometry(forme, { depth: 0.05, bevelEnabled: false });
+    geo.center();
+    const mat = new T.MeshStandardMaterial({
+      color: 0xFFFFFF, emissive: 0x556677, emissiveIntensity: 0.35,
+      roughness: 0.5, transparent: true, opacity: 0.62,
+    });
+    this.flechesMat = mat;
+    for (let i = 0; i < 8; i++) {
+      const f = new T.Mesh(geo, mat);
+      const a = (i / 8) * Math.PI * 2;
+      f.position.set(Math.cos(a) * 2.55, 0.012, Math.sin(a) * 2.55);
+      f.rotation.x = -Math.PI / 2;
+      f.userData.angle = a;
+      this.anneau.add(f);
+    }
+  }
+
+  /* ── fabrication d'une carte ── */
+  _materiaux(card, verso) {
+    if (!this._geo) this._geo = new T.BoxGeometry(CARTE.l, CARTE.e, CARTE.h);
+    const tranche = new T.MeshStandardMaterial({ color: 0xF2F4F8, roughness: 0.75 });
+    const face = (cv) => {
+      const t = new T.CanvasTexture(cv);
+      t.colorSpace = T.SRGBColorSpace;
+      t.anisotropy = 8;
+      return new T.MeshStandardMaterial({ map: t, roughness: 0.62, metalness: 0.02 });
+    };
+    const dessus = verso || !card
+      ? face(peindreDos(this.pack, this.side))
+      : face(peindreFace(card.color, card.value, this.pack));
+    const dessous = face(peindreDos(this.pack, this.side));
+    // ordre des faces d'une boîte : +x, -x, +y, -y, +z, -z
+    return [tranche, tranche, dessus, dessous, tranche, tranche];
+  }
+
+  _mesh(card, verso = false) {
+    if (!this._geo) this._geo = new T.BoxGeometry(CARTE.l, CARTE.e, CARTE.h);
+    const m = new T.Mesh(this._geo, this._materiaux(card, verso));
+    m.castShadow = true;
+    m.receiveShadow = false;
+    m.userData.card = card;
+    return m;
+  }
+
+  redimensionner() {
+    if (!this.pret) return;
+    const l = this.canvas.clientWidth || 1, h = this.canvas.clientHeight || 1;
+    this.renderer.setSize(l, h, false);
+    this.camera.aspect = l / h;
+    this.camera.updateProjectionMatrix();
+    this._placeCamera();
+  }
+
+  _placeCamera() {
+    const large = (this.canvas.clientWidth || 1) / (this.canvas.clientHeight || 1);
+    if (this.vueManette) {                     // manette : la main, de près
+      this.camera.position.set(0, 2.15, 6.15);
+      this.camera.lookAt(0, 0.35, 4.35);
+    } else if (this.vueEcran) {                // mode party : la table entière
+      this.camera.position.set(0, 9.4, 6.2);
+      this.camera.lookAt(0, 0, 0.2);
+    } else if (large < 1.05) {                 // portrait : on recule
+      this.camera.position.set(0, 8.2, 8.0);
+      this.camera.lookAt(0, 0, 0.9);
+    } else {
+      this.camera.position.set(0, 7.1, 7.3);
+      this.camera.lookAt(0, 0, 0.9);
+    }
+  }
+
+  _boucle() {
+    this.images = (this.images || 0) + 1;
+    const now = performance.now();
+    avanceTweens(now);
+    const t = this.horloge.getElapsedTime();
+    if (this.anneau) {
+      const sens = this.etat && this.etat.direction === -1 ? -1 : 1;
+      this.anneau.children.forEach((f, i) => {
+        const a = f.userData.angle + t * 0.22 * sens;
+        f.position.x = Math.cos(a) * 2.55;
+        f.position.z = Math.sin(a) * 2.55;
+        f.rotation.z = -a + (sens > 0 ? Math.PI : 0);
+        f.material.opacity = 0.34 + 0.30 * Math.sin(t * 2 + i * 0.7) ** 2;
+      });
+    }
+    // les plaques restent lisibles quel que soit l'angle du siège
+    for (const d of this.dossiers.values()) {
+      if (d.etiquette) d.etiquette.quaternion.copy(this.camera.quaternion);
+    }
+    this.renderer.render(this.scene, this.camera);
+  }
+
+  /* ═══════════════ synchronisation avec la partie ═══════════════
+     La scène compare ce qu'elle montre à ce que l'hôte annonce, puis anime
+     la différence : une carte qui apparaît sur la défausse y vole depuis la
+     main de son propriétaire, une main qui grandit reçoit ses cartes. */
+
+  /** Point d'entrée : appelé à chaque nouvel état reçu. */
+  appliquer(state) {
+    if (!this.pret || !state) return;
+    const avant = this.etat;
+    this.etat = state;
+    const changePack = state.pack !== this.pack || state.side !== this.side;
+    this.pack = state.pack || 'classic';
+    this.side = state.side || 'light';
+    this.vueEcran = !!(state.party && state.spectator);
+    this.vueManette = !!(state.party && !state.spectator);
+    this._modeVue();
+    if (changePack) { this._repeindreTout(); this._placeCamera(); }
+
+    this._placeAdversaires(state);
+    this._majDefausse(state, avant);
+    this._majMain(state, avant);
+    this._majPioche(state);
+  }
+
+  /** En manette, seule la main compte : la table s'efface. */
+  _modeVue() {
+    const montreTable = !this.vueManette;
+    if (this._tableVisible === montreTable) return;
+    this._tableVisible = montreTable;
+    for (const o of this.groupe.children) {
+      if (o === this.anneau) { o.visible = montreTable; continue; }
+      if (o === this.pioche || o === this.defausse) { o.visible = montreTable; continue; }
+      if (o.geometry && (o.geometry.type === 'CircleGeometry' || o.geometry.type === 'TorusGeometry')) {
+        o.visible = montreTable;
+      }
+    }
+    for (const d of this.dossiers.values()) {
+      d.racine.visible = montreTable;
+      if (d.etiquette) d.etiquette.visible = montreTable;
+    }
+    this._placeCamera();
+  }
+
+  /** Mène toutes les animations à leur terme, sans attendre. */
+  finirAnimations() { finisTweens(); }
+
+  /** Remet la scène à zéro entre deux manches. */
+  reinitialise() {
+    stopTweens();
+    for (const m of this.cartes.values()) this.groupe.remove(m);
+    this.cartes.clear();
+    while (this.defausse.children.length) this.defausse.remove(this.defausse.children[0]);
+    for (const d of this.dossiers.values()) {
+      this.groupe.remove(d.racine);
+      if (d.etiquette) this.groupe.remove(d.etiquette);
+    }
+    this.dossiers.clear();
+    this.etat = null;
+  }
+
+  /** Le paquet a changé : toutes les faces sont refaites. */
+  _repeindreTout() {
+    for (const m of this.cartes.values()) {
+      m.material.forEach((mm) => mm.map && mm.map.dispose());
+      m.material = this._materiaux(m.userData.card, m.userData.verso);
+    }
+    this._refaitPioche(this.etat ? this.etat.deckCount : 20);
+  }
+
+  /* ── la défausse ── */
+  _majDefausse(state, avant) {
+    const top = state.top;
+    if (!top) return;
+    const dejaLa = this.defausse.children.length
+      && this.defausse.children[this.defausse.children.length - 1].userData.cardId === top.id;
+    if (dejaLa) return;
+
+    const m = this._mesh(top, false);
+    m.userData.cardId = top.id;
+    m.userData.card = top;
+    const n = this.defausse.children.length;
+    const cible = {
+      'position.y': 0.012 + Math.min(n, 8) * CARTE.e * 1.2,
+      'rotation.y': (Math.random() - 0.5) * 0.5,
+    };
+
+    // d'où vient-elle ? de la main de celui qui vient de jouer
+    const depart = this._origineDe(state, avant);
+    m.position.copy(depart.pos);
+    m.rotation.set(depart.rot.x, depart.rot.y, depart.rot.z);
+    this.defausse.add(m);
+    m.position.sub(this.defausse.position);
+
+    anime(m, {
+      'position.x': 0, 'position.z': 0,
+      'position.y': cible['position.y'] + 0.5,
+      'rotation.x': 0, 'rotation.z': 0,
+      'rotation.y': cible['rotation.y'],
+    }, DUREE.pose, 'rond').then(() =>
+      anime(m, { 'position.y': cible['position.y'] }, 130, 'doux'));
+
+    while (this.defausse.children.length > 9) {
+      const vieux = this.defausse.children.shift();
+      this.defausse.remove(vieux);
+    }
+  }
+
+  /** La place d'où la carte s'envole : la main du joueur qui l'a posée. */
+  _origineDe(state, avant) {
+    const pos = new T.Vector3(0, 2.4, 0);
+    const rot = new T.Euler(0, 0, 0);
+    const joueur = state.players.find((p) => p.id === state.lastPlayed)
+      || (avant && state.players.find((p) => p.id === avant.turnId));
+    if (joueur) {
+      const d = this.dossiers.get(joueur.id);
+      if (d) {
+        pos.set(d.racine.position.x, 0.9, d.racine.position.z);
+        rot.set(-0.7, d.racine.rotation.y, 0);
+      } else if (joueur.id === state.you) {
+        pos.set(0, 1.2, 4.4);
+        rot.set(-1.1, 0, 0);
+      }
+    }
+    return { pos, rot };
+  }
+
+  /* ── ma main, en éventail devant la caméra ── */
+  _majMain(state, avant) {
+    const mienne = state.hand || [];
+    const vus = new Set();
+    const jouables = new Set(state.legal || []);
+
+    mienne.forEach((c, i) => {
+      vus.add(c.id);
+      let m = this.cartes.get(c.id);
+      const neuve = !m;
+      const signature = `${c.color}:${c.value}:${c.chosen || ''}`;
+      if (m && m.userData.signature !== signature) {
+        // même carton, autre face : on la repeint (retournement Flip)
+        m.material.forEach((mm) => mm.map && mm.map.dispose());
+        m.material = this._materiaux(c, false);
+        m.userData.card = c;
+        m.userData.signature = signature;
+      }
+      if (neuve) {
+        m = this._mesh(c, false);
+        m.userData.cardId = c.id;
+        m.userData.signature = signature;
+        m.userData.mienne = true;
+        this.groupe.add(m);
+        this.cartes.set(c.id, m);
+        // elle arrive de la pioche
+        m.position.set(this.pioche.position.x, 0.35, this.pioche.position.z);
+        m.rotation.set(0, 0, 0);
+      }
+      const p = this._placeEnMain(i, mienne.length);
+      const cible = {
+        'position.x': p.x, 'position.y': p.y, 'position.z': p.z,
+        'rotation.x': p.rx, 'rotation.y': 0, 'rotation.z': p.rz,
+      };
+      m.userData.repos = { ...cible };
+      m.userData.jouable = jouables.includes ? jouables.includes(c.id) : jouables.has(c.id);
+      // Une carte injouable s'éteint. On l'assombrit plutôt que de la rendre
+      // translucide : la transparence laisserait voir le tapis au travers et
+      // trierait mal les faces.
+      const eteinte = state.turnId === state.you && !m.userData.jouable;
+      const teinte = eteinte ? 0x5A6070 : 0xFFFFFF;
+      m.material.forEach((mm) => { if (mm.color) mm.color.setHex(teinte); });
+      anime(m, cible, neuve ? DUREE.donne : 240, neuve ? 'ressort' : 'doux',
+        neuve ? i * 45 : 0);
+    });
+
+    // les cartes qui ont quitté la main
+    for (const [id, m] of [...this.cartes]) {
+      if (vus.has(id) || !m.userData.mienne) continue;
+      this.cartes.delete(id);
+      anime(m, { 'position.y': m.position.y + 0.9, 'rotation.x': -1.4 }, 260, 'doux')
+        .then(() => { this.groupe.remove(m); });
+      m.material.forEach((mm) => { mm.transparent = true; });
+      anime({ o: 1 }, { o: 0 }, 260).then(() => {});
+    }
+  }
+
+  /** Position d'une carte dans l'éventail. */
+  _placeEnMain(i, total) {
+    const large = Math.min(4.6, Math.max(1.6, total * 0.62));
+    const pas = total > 1 ? large / (total - 1) : 0;
+    const x = total > 1 ? -large / 2 + i * pas : 0;
+    const centre = total > 1 ? (i - (total - 1) / 2) / ((total - 1) / 2 || 1) : 0;
+    return {
+      x,
+      y: 0.78 - Math.abs(centre) * 0.10,
+      z: 3.75 + Math.abs(centre) * 0.20,
+      rx: 0.86,
+      rz: -centre * 0.20,
+    };
+  }
+
+  /* ── les autres joueurs, tout autour ── */
+  _placeAdversaires(state) {
+    const autres = state.players.filter((p) => p.id !== state.you);
+    const total = autres.length;
+    const vus = new Set();
+
+    autres.forEach((p, i) => {
+      vus.add(p.id);
+      let d = this.dossiers.get(p.id);
+      if (!d) {
+        const racine = new T.Group();
+        this.groupe.add(racine);
+        d = { racine, cartes: [], etiquette: null };
+        this.dossiers.set(p.id, d);
+      }
+      // en vue « écran », le tour complet ; sinon l'arc face à nous
+      // le joueur occupe le devant (z positif) : les autres se rangent sur
+      // l'arc opposé, du plus à gauche au plus à droite
+      const a = this.vueEcran
+        ? (i / total) * Math.PI * 2 + Math.PI / 2
+        : Math.PI + ((i + 1) / (total + 1)) * Math.PI;
+      const r = TAPIS_R * 0.78;
+      d.racine.position.set(Math.cos(a) * r, 0.02, Math.sin(a) * r);
+      d.racine.rotation.y = -a - Math.PI / 2;
+
+      this._majEventail(d, p, state);
+      this._majEtiquette(d, p, state);
+      if (d.etiquette) {
+        d.etiquette.position.set(d.racine.position.x * 1.06, 0.72, d.racine.position.z * 1.06);
+      }
+    });
+
+    for (const [id, d] of [...this.dossiers]) {
+      if (vus.has(id)) continue;
+      this.groupe.remove(d.racine);
+      if (d.etiquette) this.groupe.remove(d.etiquette);
+      this.dossiers.delete(id);
+    }
+  }
+
+  /** L'éventail d'un adversaire : verso, sauf s'il est de notre camp. */
+  _majEventail(d, p, state) {
+    const ouvertes = (state.allyHands && state.allyHands[p.id]) || null;
+    const n = Math.min(p.handCount, 12);
+    while (d.cartes.length > n) {
+      const m = d.cartes.pop();
+      d.racine.remove(m);
+    }
+    while (d.cartes.length < n) {
+      const m = this._mesh(null, true);
+      m.userData.verso = true;
+      d.racine.add(m);
+      d.cartes.push(m);
+      m.scale.setScalar(0.01);
+      anime(m, { 'scale.x': 0.62, 'scale.y': 0.62, 'scale.z': 0.62 }, 260, 'ressort');
+    }
+    d.cartes.forEach((m, i) => {
+      const c = ouvertes && ouvertes[i];
+      const sig = c ? `${c.color}:${c.value}` : 'dos';
+      if (m.userData.signature !== sig) {
+        m.material.forEach((mm) => mm.map && mm.map.dispose());
+        m.material = this._materiaux(c || null, !c);
+        m.userData.signature = sig;
+        m.userData.card = c || null;
+      }
+      const large = Math.min(1.5, n * 0.20);
+      const x = n > 1 ? -large / 2 + (i * large) / (n - 1) : 0;
+      const centre = n > 1 ? (i - (n - 1) / 2) / ((n - 1) / 2) : 0;
+      m.scale.setScalar(0.62);
+      anime(m, {
+        'position.x': x, 'position.y': 0.30 - Math.abs(centre) * 0.03,
+        'position.z': -0.10, 'rotation.x': 1.05, 'rotation.z': -centre * 0.24,
+      }, 240, 'doux');
+    });
+  }
+
+  /** La plaque avec le nom, le score et l'état du joueur. */
+  _majEtiquette(d, p, state) {
+    const actif = state.turnId === p.id;
+    const cle = [p.name, p.handCount, p.score, actif, p.out, p.mustCallUno,
+      p.connected, p.partyCount].join('|');
+    if (d.cle === cle) {
+      if (d.etiquette) d.etiquette.position.y = 0.62 + (actif ? 0.06 : 0);
+      return;
+    }
+    d.cle = cle;
+    if (d.etiquette) { this.groupe.remove(d.etiquette); d.etiquette.material.map.dispose(); }
+
+    const cv = document.createElement('canvas');
+    cv.width = 512; cv.height = 148;
+    const x = cv.getContext('2d');
+    const r = 26;
+    x.beginPath();
+    x.moveTo(r, 0); x.arcTo(512, 0, 512, 148, r); x.arcTo(512, 148, 0, 148, r);
+    x.arcTo(0, 148, 0, 0, r); x.arcTo(0, 0, 512, 0, r); x.closePath();
+    x.fillStyle = p.out ? 'rgba(40,8,12,.94)' : (actif ? 'rgba(28,26,10,.95)' : 'rgba(10,12,18,.90)');
+    x.fill();
+    x.lineWidth = 5;
+    x.strokeStyle = p.out ? '#8E0F14' : (actif ? '#FFC900' : 'rgba(255,255,255,.16)');
+    x.stroke();
+
+    const AV = ['#ED1C24', '#0071CE', '#00A651', '#FFC900'];
+    x.fillStyle = AV[(p.seat || 0) % 4];
+    x.beginPath();
+    x.roundRect(20, 28, 92, 92, 22);
+    x.fill();
+    x.fillStyle = (p.seat % 4) === 3 ? '#2E2400' : '#FFFFFF';
+    x.font = 'italic 900 54px "Arial Black", Arial, sans-serif';
+    x.textAlign = 'center'; x.textBaseline = 'middle';
+    x.fillText((p.name || '?').slice(0, 1).toUpperCase(), 66, 76);
+
+    x.textAlign = 'left';
+    x.fillStyle = p.out ? '#C99' : '#FFFFFF';
+    x.font = '700 46px Arial, sans-serif';
+    x.fillText((p.name || '').slice(0, 13), 132, 56);
+    x.font = '600 34px Arial, sans-serif';
+    x.fillStyle = '#9AA3B4';
+    const bouts = [`${p.handCount} carte${p.handCount > 1 ? 's' : ''}`, `${p.score} pt`];
+    if (p.partyCount) bouts.push(`${p.partyCount} party`);
+    if (p.isBot) bouts.push('bot');
+    if (!p.connected) bouts.push('hors ligne');
+    x.fillText(bouts.join(' · '), 132, 108);
+    if (p.out) {
+      x.fillStyle = '#FF6B62';
+      x.font = 'italic 900 40px "Arial Black", Arial, sans-serif';
+      x.textAlign = 'right';
+      x.fillText('ÉLIMINÉ', 492, 84);
+    } else if (p.mustCallUno) {
+      x.fillStyle = '#FFC900';
+      x.font = 'italic 900 44px "Arial Black", Arial, sans-serif';
+      x.textAlign = 'right';
+      x.fillText('UNO !', 492, 84);
+    }
+
+    const tex = new T.CanvasTexture(cv);
+    tex.colorSpace = T.SRGBColorSpace;
+    const plaque = new T.Mesh(
+      new T.PlaneGeometry(1.30, 0.376),
+      new T.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false }),
+    );
+    // La plaque est fille du plateau, pas du siège : rattachée au siège, son
+    // orientation vers la caméra hériterait de la rotation de celui-ci et
+    // les joueurs du bas se liraient à l'envers.
+    plaque.position.copy(d.racine.position);
+    plaque.position.y = 0.72;
+    plaque.position.multiplyScalar(1.0);
+    this.groupe.add(plaque);
+    d.etiquette = plaque;
+  }
+
+  _majPioche(state) {
+    const veut = Math.max(3, Math.min(26, Math.round((state.deckCount || 20) / 4)));
+    if (this._piocheN === veut) return;
+    this._piocheN = veut;
+    this._refaitPioche(veut);
+  }
+
+  /* ═══════════════ le doigt et la souris ═══════════════
+     Un rayon part du curseur : ce qu'il touche en premier est ce qu'on
+     désigne. C'est ce qui remplace les clics du DOM. */
+
+  brancherEntrees() {
+    const c = this.canvas;
+    const point = (ev) => {
+      const r = c.getBoundingClientRect();
+      const t = ev.touches ? ev.touches[0] : ev;
+      this.souris.x = ((t.clientX - r.left) / r.width) * 2 - 1;
+      this.souris.y = -((t.clientY - r.top) / r.height) * 2 + 1;
+    };
+    const viser = () => {
+      this.rayon.setFromCamera(this.souris, this.camera);
+      const cibles = [...this.cartes.values(), ...this.pioche.children];
+      const touches = this.rayon.intersectObjects(cibles, false);
+      return touches.length ? touches[0].object : null;
+    };
+
+    c.addEventListener('pointermove', (ev) => {
+      point(ev);
+      const o = viser();
+      const carte = o && o.userData.mienne ? o : null;
+      if (this.survolee === carte) return;
+      if (this.survolee) this._souleve(this.survolee, false);
+      this.survolee = carte;
+      if (carte) this._souleve(carte, true);
+      c.style.cursor = o ? 'pointer' : 'default';
+    });
+    c.addEventListener('pointerleave', () => {
+      if (this.survolee) this._souleve(this.survolee, false);
+      this.survolee = null;
+    });
+    c.addEventListener('pointerdown', (ev) => {
+      point(ev);
+      this._appuye = viser();
+    });
+    c.addEventListener('pointerup', (ev) => {
+      point(ev);
+      const o = viser();
+      if (!o || o !== this._appuye) { this._appuye = null; return; }
+      this._appuye = null;
+      if (o.userData.pioche) { this.surPioche && this.surPioche(); return; }
+      if (o.userData.mienne && o.userData.card) {
+        this.surCarte && this.surCarte(o.userData.card, o);
+      }
+    });
+  }
+
+  /** La carte survolée sort de l'éventail. */
+  _souleve(m, oui) {
+    const r = m.userData.repos;
+    if (!r) return;
+    if (m.userData.jouable === false) {
+      m.material.forEach((mm) => mm.color && mm.color.setHex(oui ? 0x9AA2B4 : 0x5A6070));
+    }
+    anime(m, {
+      'position.y': r['position.y'] + (oui ? 0.42 : 0),
+      'position.z': r['position.z'] - (oui ? 0.30 : 0),
+      'rotation.x': r['rotation.x'] + (oui ? 0.30 : 0),
+    }, 180, 'doux');
+  }
+
+  /* ═══════════════ effets ═══════════════ */
+
+  /** Marque la carte choisie avant de l'envoyer. */
+  selectionne(cardId) {
+    for (const [id, m] of this.cartes) {
+      const choisie = id === cardId;
+      const r = m.userData.repos;
+      if (!r) continue;
+      anime(m, {
+        'position.y': r['position.y'] + (choisie ? 0.55 : 0),
+        'position.z': r['position.z'] - (choisie ? 0.38 : 0),
+      }, 170, 'doux');
+    }
+  }
+
+  /** Retournement du paquet Flip : la table bascule. */
+  animeRetournement() {
+    const g = this.groupe;
+    anime(g, { 'rotation.z': Math.PI }, DUREE.retour, 'rond')
+      .then(() => { g.rotation.z = 0; this._repeindreTout(); });
+  }
+
+  /** Une pénalité tombe : la pioche tressaille. */
+  animePenalite() {
+    const p = this.pioche;
+    anime(p, { 'position.y': 0.35 }, 120, 'doux')
+      .then(() => anime(p, { 'position.y': 0 }, 260, 'ressort'));
+  }
+
+  /** Quelqu'un gagne : le tapis respire. */
+  animeVictoire() {
+    anime(this.groupe, { 'scale.x': 1.04, 'scale.y': 1.04, 'scale.z': 1.04 }, 260, 'doux')
+      .then(() => anime(this.groupe, { 'scale.x': 1, 'scale.y': 1, 'scale.z': 1 }, 420, 'ressort'));
+  }
+
+  detruire() {
+    stopTweens();
+    if (this.renderer) {
+      this.renderer.setAnimationLoop(null);
+      this.renderer.dispose();
+    }
+    this.pret = false;
+  }
+}

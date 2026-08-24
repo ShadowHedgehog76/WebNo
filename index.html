@@ -9,7 +9,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-<link rel="stylesheet" href="css/style.css?v=202608221345" />
+<link rel="stylesheet" href="css/style.css?v=202608241542" />
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='16' fill='%230a0a0f'/><ellipse cx='50' cy='50' rx='38' ry='26' fill='%23ED1C24' transform='rotate(-20 50 50)'/><text x='50' y='60' font-size='30' font-family='Arial Black,sans-serif' font-style='italic' fill='%23fff' text-anchor='middle' transform='rotate(-20 50 50)'>W</text></svg>" />
 </head>
 <body>
@@ -221,39 +221,14 @@
     </div>
   </header>
 
-  <div class="scene">
-    <div class="table3d" id="table3d">
-      <div class="felt">
-        <div class="felt-mark" aria-hidden="true">
-          <svg viewBox="0 0 340 130">
-            <ellipse cx="170" cy="65" rx="150" ry="52" transform="rotate(-8 170 65)" fill="none" stroke="#fff" stroke-width="4"/>
-            <text x="170" y="84" text-anchor="middle" transform="rotate(-8 170 65)"
-                  font-family="'Archivo Black','Arial Black',sans-serif" font-size="58" font-style="italic" fill="#fff">WebNo</text>
-          </svg>
-        </div>
-      </div>
-      <div class="rail" id="rail"></div>
-
-      <div class="seats" id="seats"></div>
-
-      <div class="center" id="center">
-        <div class="pile" id="deck-pile" title="Pioche">
-          <div class="card back deck-3"></div>
-          <div class="card back deck-2"></div>
-          <div class="card back"></div>
-          <div class="pile-count" id="deck-count">108</div>
-        </div>
-        <div class="pile discard" id="discard-pile"></div>
-      </div>
-      <div class="dir-ring" id="dir-ring" aria-hidden="true">
-        <div class="orbit">
-          <i style="--a:0deg"></i><i style="--a:60deg"></i><i style="--a:120deg"></i>
-          <i style="--a:180deg"></i><i style="--a:240deg"></i><i style="--a:300deg"></i>
-        </div>
-      </div>
-      <div class="pending-badge" id="pending-badge" hidden></div>
-    </div>
-  </div>
+  <!-- Le plateau vit en volume : la toile occupe la place, le DOM ne garde
+       que les menus et les commandes. -->
+  <canvas class="scene3d" id="scene3d"></canvas>
+  <div class="pending-badge" id="pending-badge" hidden></div>
+  <p class="no3d" id="no3d" hidden>
+    Votre navigateur ne sait pas afficher de 3D. La partie reste jouable :
+    vos cartes et vos boutons sont ci-dessous.
+  </p>
 
   <!-- mode party : l'écran de l'hôte annonce ce qui se passe -->
   <div class="party-hud" id="party-hud" hidden>
@@ -287,6 +262,7 @@
       <span id="kn-wait">La manche continue sans vous.</span>
     </div>
   </div>
+
 
   <div class="myzone">
     <div class="me-bar">
@@ -462,6 +438,6 @@
 </div>
 
 <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
-<script type="module" src="js/app.js?v=202608221345"></script>
+<script type="module" src="js/app.js?v=202608241542"></script>
 </body>
 </html>
