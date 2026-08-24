@@ -4,7 +4,7 @@
 // pilotée par l'état que l'hôte diffuse ; elle ne décide de rien, elle montre.
 
 import * as T from './vendor/three.module.min.js';
-import { peindreFace, peindreDos } from './cardtex.js?v=202608241826';
+import { peindreFace, peindreDos } from './cardtex.js?v=202608241841';
 
 /* ─────────────── réglages ─────────────── */
 const CARTE = { l: 1, h: 1.5, e: 0.014 };     // largeur, hauteur, épaisseur
@@ -264,8 +264,9 @@ export class Plateau {
       const x = Math.cos(a) * rx, z = Math.sin(a) * rz;
       const chaise = new T.Group();
       chaise.position.set(x, -0.98, z);
-      // le dossier regarde le dehors : on fait face au centre
-      chaise.rotation.y = -Math.atan2(z, x) - Math.PI / 2;
+      // Le dossier, posé en z local positif, doit pointer vers le dehors :
+      // c'est « atan2(x, z) » qui aligne l'axe z local sur cette direction.
+      chaise.rotation.y = Math.atan2(x, z);
 
       const assise = new T.Mesh(new T.BoxGeometry(1.15, 0.17, 1.08), bois);
       assise.castShadow = assise.receiveShadow = true;
@@ -850,16 +851,18 @@ export class Plateau {
 
   /** Position d'une carte dans l'éventail. */
   _placeEnMain(i, total) {
-    const large = Math.min(7.4, Math.max(1.4, total * 0.86));
+    const large = Math.min(6.4, Math.max(1.2, total * 0.60));
     const pas = total > 1 ? large / (total - 1) : 0;
     const x = total > 1 ? -large / 2 + i * pas : 0;
     const centre = total > 1 ? (i - (total - 1) / 2) / ((total - 1) / 2 || 1) : 0;
     return {
       x,
-      y: 0.72 - Math.abs(centre) * 0.08,
-      z: MAIN_Z + Math.abs(centre) * 0.18,
+      // l'escalier : chaque carte se pose un cran au-dessus de la précédente,
+      // assez pour qu'on lise celle du dessous
+      y: 0.56 + i * 0.052,
+      z: MAIN_Z - i * 0.030,
       rx: 0.80,
-      rz: -centre * 0.18,
+      rz: -centre * 0.15,
     };
   }
 
@@ -891,7 +894,7 @@ export class Plateau {
       this._majEventail(d, p, state);
       this._majEtiquette(d, p, state);
       if (d.etiquette) {
-        d.etiquette.position.set(d.racine.position.x * 1.05, 0.74, d.racine.position.z * 1.05);
+        d.etiquette.position.set(d.racine.position.x * 1.04, 0.95, d.racine.position.z * 1.04);
       }
     });
 
@@ -928,13 +931,15 @@ export class Plateau {
         m.userData.signature = sig;
         m.userData.card = c || null;
       }
-      const large = Math.min(1.5, n * 0.20);
+      const large = Math.min(2.5, Math.max(0.5, n * 0.30));
       const x = n > 1 ? -large / 2 + (i * large) / (n - 1) : 0;
       const centre = n > 1 ? (i - (n - 1) / 2) / ((n - 1) / 2) : 0;
-      m.scale.setScalar(0.62);
+      m.scale.setScalar(0.66);
       anime(m, {
-        'position.x': x, 'position.y': 0.30 - Math.abs(centre) * 0.03,
-        'position.z': -0.10, 'rotation.x': 1.05, 'rotation.z': -centre * 0.24,
+        'position.x': x,
+        'position.y': 0.26 + i * 0.016,          // le même escalier, en face
+        'position.z': -0.06 - i * 0.008,
+        'rotation.x': 1.05, 'rotation.z': -centre * 0.20,
       }, 240, 'doux');
     });
   }
@@ -1000,7 +1005,7 @@ export class Plateau {
     const tex = new T.CanvasTexture(cv);
     tex.colorSpace = T.SRGBColorSpace;
     const plaque = new T.Mesh(
-      new T.PlaneGeometry(1.30, 0.376),
+      new T.PlaneGeometry(1.92, 0.555),
       new T.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false }),
     );
     // La plaque est fille du plateau, pas du siège : rattachée au siège, son

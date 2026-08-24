@@ -190,6 +190,36 @@ export function peindreFace(color, value, pack = 'classic') {
   }
   ctx.restore();
 
+  // Extreme : un éclat métallique part du centre
+  if (pack === 'extreme') {
+    ctx.save();
+    coinsArrondis(ctx, marge, marge, W - marge * 2, H - marge * 2, R * 0.72);
+    ctx.clip();
+    ctx.globalAlpha = 0.30;
+    for (let i = 0; i < 16; i++) {
+      const a0 = (i / 16) * Math.PI * 2;
+      ctx.beginPath();
+      ctx.moveTo(W / 2, H / 2);
+      ctx.arc(W / 2, H / 2, H, a0, a0 + Math.PI / 16);
+      ctx.closePath();
+      ctx.fillStyle = i % 2 ? 'rgba(255,255,255,.55)' : 'rgba(0,0,0,.35)';
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+    ctx.restore();
+    // le cadre chromé
+    ctx.save();
+    const chrome = ctx.createLinearGradient(0, 0, W, H);
+    chrome.addColorStop(0, '#F6F9FF'); chrome.addColorStop(0.35, '#9AA6BA');
+    chrome.addColorStop(0.5, '#EDF1F8'); chrome.addColorStop(0.72, '#7C8798');
+    chrome.addColorStop(1, '#E2E8F2');
+    ctx.strokeStyle = chrome;
+    ctx.lineWidth = W * 0.055;
+    coinsArrondis(ctx, marge * 1.35, marge * 1.35, W - marge * 2.7, H - marge * 2.7, R * 0.6);
+    ctx.stroke();
+    ctx.restore();
+  }
+
   // l'ovale blanc incliné
   const incline = pack === 'nomercy' ? 0.42 : (pack === 'extreme' ? 0.24 : 0.36);
   ctx.save();
@@ -236,6 +266,30 @@ export function peindreFace(color, value, pack = 'classic') {
   ctx.textAlign = 'left';
   ctx.fillText(coin, 0, 0);
   ctx.restore();
+
+  // Flip : le coin replié, signature du paquet — sa couleur annonce l'autre
+  // face, comme sur les vraies cartes.
+  if (pack === 'flip') {
+    const pli = W * 0.30;
+    ctx.save();
+    ctx.beginPath();
+    ctx.moveTo(W - pli, 0);
+    ctx.lineTo(W, 0);
+    ctx.lineTo(W, pli * 1.5);
+    ctx.closePath();
+    const g2 = ctx.createLinearGradient(W - pli, 0, W, pli * 1.5);
+    g2.addColorStop(0, sombre);
+    g2.addColorStop(1, clair);
+    ctx.fillStyle = g2;
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(0,0,0,.28)';
+    ctx.lineWidth = W * 0.012;
+    ctx.beginPath();
+    ctx.moveTo(W - pli, 0);
+    ctx.lineTo(W, pli * 1.5);
+    ctx.stroke();
+    ctx.restore();
+  }
 
   CACHE.set(cle, cv);
   return cv;
