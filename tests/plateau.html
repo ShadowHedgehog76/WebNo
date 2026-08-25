@@ -235,7 +235,84 @@ dit('Le repli en deux dimensions');
      String(d2.querySelectorAll('#p2-sens i').length));
   const larg = uneCarte.getBoundingClientRect().width;
   ok(larg >= 70, 'les cartes sont assez grandes pour le doigt', Math.round(larg) + ' px');
+
+  // le doigt doit atteindre la carte : rien ne doit s'interposer
+  {
+    const r = uneCarte.getBoundingClientRect();
+    const dessus = d2.elementFromPoint(Math.round(r.left + r.width / 2),
+                                       Math.round(r.top + r.height / 2));
+    ok(dessus === uneCarte || uneCarte.contains(dessus),
+       'la carte reçoit bien le clic', dessus ? `<${dessus.tagName.toLowerCase()} class="${dessus.className}">` : 'rien');
+    let touchee = null;
+    w2.__scene.surCarte = (c) => { touchee = c; };
+    uneCarte.dispatchEvent(new w2.MouseEvent('click', { bubbles: true }));
+    ok(touchee, 'et le clic parvient au jeu');
+  }
   f2.remove();
+}
+
+dit('La manette du mode party');
+{
+  const f3 = document.createElement('iframe');
+  f3.width = 844; f3.height = 390; f3.src = '../index.html';
+  document.body.appendChild(f3);
+  await new Promise((r) => { f3.onload = r; });
+  const w3 = f3.contentWindow, d3 = f3.contentDocument;
+  w3.matchMedia = (m) => (/pointer: coarse|hover: none/.test(m)
+    ? { matches: true, addEventListener() {}, removeEventListener() {} }
+    : { matches: false, addEventListener() {}, removeEventListener() {} });
+  w3.Peer = class { constructor(i) { this._h = {}; setTimeout(() => (this._h.open || []).forEach((f) => f(i)), 0); }
+    on(e, f) { (this._h[e] = this._h[e] || []).push(f); } destroy() {} };
+  d3.getElementById('input-name').value = 'Hôte';
+  d3.getElementById('btn-create').click();
+  await attends(220);
+  const h3 = w3.__webno.host;
+  h3.settings.partySize = 12;
+  h3.setSetting('mode', 'party');
+  await attends(80);
+  d3.getElementById('btn-fill-bots').click();
+  await attends(140);
+  d3.getElementById('btn-start').click();
+  await attends(700);
+  const g3 = h3.game;
+  if (h3.pump) { clearInterval(h3.pump); h3.pump = null; }
+
+  // on regarde par les yeux d'un joueur : c'est ce que montre son téléphone
+  const moi = g3.players[0];
+  g3.turnIndex = 0;
+  moi.hand = [['red', '5'], ['blue', '9'], ['green', '2']]
+    .map(([c, v], i) => ({ id: 'pad-' + i, color: c, value: v }));
+  g3.discard = [{ id: 'pad-top', color: 'red', value: '3' }];
+  g3.currentColor = 'red';
+  w3.__apply(g3.stateFor(moi.id));
+  await attends(120);
+
+  ok(d3.body.classList.contains('is-pad'), 'le téléphone est bien en manette');
+  ok(d3.body.classList.contains('en-2d'), 'et sur le plateau sans volume');
+  const p2 = d3.getElementById('plateau2d');
+  ok(p2 && p2.parentElement === d3.getElementById('pad'),
+     'le plateau se range dans la manette');
+  const cartes = d3.querySelectorAll('#p2-main .c2');
+  ok(cartes.length === 3, 'les trois cartes sont montrées', String(cartes.length));
+
+  const c0 = cartes[0];
+  const r = c0.getBoundingClientRect();
+  const dessus = d3.elementFromPoint(Math.round(r.left + r.width / 2),
+                                     Math.round(r.top + r.height / 2));
+  ok(dessus === c0 || c0.contains(dessus), 'rien ne s\'interpose devant la carte',
+     dessus ? `<${dessus.tagName.toLowerCase()} class="${String(dessus.className).slice(0, 24)}">` : 'rien');
+  let jouee = null;
+  w3.__scene.surCarte = (c) => { jouee = c; };
+  c0.dispatchEvent(new w3.MouseEvent('click', { bubbles: true }));
+  ok(jouee && jouee.id === 'pad-0', 'la toucher la joue', jouee ? jouee.id : 'aucune');
+
+  const piocher = d3.getElementById('pad-draw');
+  const rp = piocher.getBoundingClientRect();
+  const surBouton = d3.elementFromPoint(Math.round(rp.left + rp.width / 2),
+                                        Math.round(rp.top + rp.height / 2));
+  ok(surBouton === piocher || piocher.contains(surBouton),
+     'et les boutons restent atteignables');
+  f3.remove();
 }
 
 dit('Rien n\'a cassé');

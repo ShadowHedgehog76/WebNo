@@ -4,7 +4,7 @@
 // pilotée par l'état que l'hôte diffuse ; elle ne décide de rien, elle montre.
 
 import * as T from './vendor/three.module.min.js';
-import { peindreFace, peindreDos } from './cardtex.js?v=202608251351';
+import { peindreFace, peindreDos } from './cardtex.js?v=202608251401';
 
 /* ─────────────── réglages ─────────────── */
 const CARTE = { l: 1, h: 1.5, e: 0.014 };     // largeur, hauteur, épaisseur

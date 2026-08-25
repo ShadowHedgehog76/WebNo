@@ -2160,8 +2160,13 @@ body.is-out .turn-flag, body.is-out .pad-turn { display: none; }
 
 /* la manette montre la même scène, mais cadrée sur la main */
 body.is-pad .pad-hand { display: none; }
-body.is-pad .pad { background: none; pointer-events: none; }
-body.is-pad .pad-top, body.is-pad .pad-actions { pointer-events: auto; }
+/* La manette laisse passer les clics vers la scène en volume qu'elle
+   recouvre — mais pas quand le plateau vit dans le document : il est alors
+   son enfant, et hériterait de cette transparence. */
+body.is-pad:not(.en-2d) .pad { background: none; pointer-events: none; }
+body.is-pad:not(.en-2d) .pad-top,
+body.is-pad:not(.en-2d) .pad-actions { pointer-events: auto; }
+body.is-pad.en-2d .pad { background: none; }
 .no3d {
   position: absolute; top: 42%; left: 50%; translate: -50% 0; z-index: 3;
   max-width: 30ch; text-align: center; color: var(--muted); font-size: 14px;

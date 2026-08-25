@@ -4,7 +4,7 @@
 // Même rôle que scene3d : on lui donne l'état, il montre. Les cartes sont ici
 // des éléments du document, ce qui les rend tactiles sans effort.
 
-import { peindreFace, peindreDos } from './cardtex.js?v=202608251351';
+import { peindreFace, peindreDos } from './cardtex.js?v=202608251401';
 
 const $ = (id) => document.getElementById(id);
 
