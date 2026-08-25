@@ -223,6 +223,18 @@ dit('Le repli en deux dimensions');
   ok(d2.querySelectorAll('#p2-sieges .p2-siege').length === 3, 'les trois adversaires sont là');
   ok(d2.querySelector('#p2-defausse .c2'), 'la défausse montre sa carte');
   ok(d2.querySelectorAll('#p2-main .c2.jouable').length > 0, 'les cartes jouables se distinguent');
+  // les cartes portent le même dessin qu'en volume, et le sens s'affiche
+  const uneCarte = d2.querySelector('#p2-main .c2');
+  ok(/^url\("data:image\/png/.test(uneCarte.style.backgroundImage),
+     'chaque carte porte le dessin peint pour la 3D',
+     uneCarte.style.backgroundImage.slice(0, 28));
+  const dos = d2.querySelector('#p2-dos .c2.verso');
+  ok(dos && /^url\("data:image\/png/.test(dos.style.backgroundImage),
+     'et la pioche montre son dos, marque comprise');
+  ok(d2.querySelectorAll('#p2-sens i').length === 8, 'les flèches de sens font le tour',
+     String(d2.querySelectorAll('#p2-sens i').length));
+  const larg = uneCarte.getBoundingClientRect().width;
+  ok(larg >= 70, 'les cartes sont assez grandes pour le doigt', Math.round(larg) + ' px');
   f2.remove();
 }
 

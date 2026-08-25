@@ -2230,7 +2230,7 @@ body.en-2d .scene-wrap { display: none; }
 
 /* ─── la pioche et la défausse ─── */
 .p2-centre {
-  flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center;
+  position: relative; flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center;
   gap: clamp(20px, 7vw, 54px);
 }
 .p2-pioche {
@@ -2250,56 +2250,53 @@ body.en-2d .scene-wrap { display: none; }
   opacity: .55;
 }
 
-/* ─── la carte, sans relief ─── */
+/* ─── la carte : le dessin vient de la même toile qu'en volume ─── */
 .c2 {
-  --cw: clamp(58px, 15vw, 96px);
+  --cw: clamp(74px, 19vw, 116px);
   width: var(--cw); height: calc(var(--cw) * 1.5);
-  border-radius: calc(var(--cw) * .11); position: relative; flex: none;
-  background: linear-gradient(150deg, #fff, #E8ECF5);
-  box-shadow: 0 5px 14px rgba(0,0,0,.45);
-  display: grid; place-items: center; cursor: pointer;
+  flex: none; position: relative; cursor: pointer;
+  background: center / 100% 100% no-repeat;
+  border-radius: calc(var(--cw) * .10);
+  filter: drop-shadow(0 5px 12px rgba(0,0,0,.55));
   transition: transform .18s var(--ease), filter .18s, opacity .18s;
 }
-.c2::before {
-  content: ''; position: absolute; inset: 7%; border-radius: calc(var(--cw) * .07);
-  background: var(--teinte-carte, #999);
-}
-.c2.red { --teinte-carte: linear-gradient(150deg, #FF5B52, #ED1C24 55%, #8E0F14); }
-.c2.yellow { --teinte-carte: linear-gradient(150deg, #FFE95C, #FFC900 55%, #B08A00); }
-.c2.green { --teinte-carte: linear-gradient(150deg, #2ED47B, #00A651 55%, #00693A); }
-.c2.blue { --teinte-carte: linear-gradient(150deg, #3D9BE8, #0071CE 55%, #004A81); }
-.c2.pink { --teinte-carte: linear-gradient(150deg, #FF6FB5, #E82A7C 55%, #8E0A4C); }
-.c2.teal { --teinte-carte: linear-gradient(150deg, #3FD8D4, #00A8A2 55%, #046B69); }
-.c2.orange { --teinte-carte: linear-gradient(150deg, #FFA24D, #F57C00 55%, #9C4A00); }
-.c2.purple { --teinte-carte: linear-gradient(150deg, #A87BD4, #7B2FBE 55%, #4A2C6B); }
-.c2.wild { --teinte-carte: conic-gradient(#ED1C24 0 25%, #FFC900 0 50%, #00A651 0 75%, #0071CE 0); }
-.c2-rond {
-  position: relative; width: 74%; height: 62%; border-radius: 50%;
-  background: #fff; display: grid; place-items: center;
-  rotate: -20deg; box-shadow: 0 2px 6px rgba(0,0,0,.2);
-}
-.c2-rond b {
-  rotate: 20deg; font-family: var(--display); font-style: italic;
-  font-size: calc(var(--cw) * .44); color: #17171D; line-height: 1;
-}
-.c2.red .c2-rond b { color: #ED1C24; } .c2.yellow .c2-rond b { color: #B08A00; }
-.c2.green .c2-rond b { color: #00A651; } .c2.blue .c2-rond b { color: #0071CE; }
-.c2.purple .c2-rond b { color: #7B2FBE; } .c2.teal .c2-rond b { color: #00A8A2; }
-.c2.pink .c2-rond b { color: #E82A7C; } .c2.orange .c2-rond b { color: #F57C00; }
-.c2 > i {
-  position: absolute; top: 4%; left: 7%; font-style: normal; font-weight: 900;
-  font-size: calc(var(--cw) * .17); color: #fff; text-shadow: 0 1px 2px rgba(0,0,0,.5);
-}
-.c2.verso { background: linear-gradient(150deg, #2A2C34, #08080C); }
-.c2.verso::before {
-  inset: 22% 12%; border-radius: 50%; rotate: -20deg;
-  background: linear-gradient(170deg, #FF5B52, var(--red));
-}
-.cote-sombre .c2.verso::before { background: linear-gradient(170deg, #A87BD4, var(--purple)); }
 .c2.posee { rotate: -4deg; }
-.c2.eteinte { filter: grayscale(.5) brightness(.62); opacity: .5; }
-.c2.jouable { box-shadow: 0 5px 16px rgba(0,0,0,.5), 0 0 0 2px rgba(255,255,255,.75); }
-.c2.choisie { transform: translateY(-14px); }
+.c2.eteinte { filter: grayscale(.45) brightness(.6) drop-shadow(0 3px 8px rgba(0,0,0,.5)); opacity: .62; }
+.c2.jouable { filter: drop-shadow(0 6px 15px rgba(0,0,0,.6)) drop-shadow(0 0 3px rgba(255,255,255,.9)); }
+.c2.choisie { transform: translateY(-16px) scale(1.04); }
+.c2-choix {
+  position: absolute; right: 6%; bottom: 6%; width: 26%; aspect-ratio: 1;
+  border-radius: 50%; border: 2px solid #fff; box-shadow: 0 2px 6px rgba(0,0,0,.5);
+}
+.c2-choix.red { background: var(--red); } .c2-choix.yellow { background: var(--yellow); }
+.c2-choix.green { background: var(--green); } .c2-choix.blue { background: var(--blue); }
+.c2-choix.pink { background: #E82A7C; } .c2-choix.teal { background: #00A8A2; }
+.c2-choix.orange { background: #F57C00; } .c2-choix.purple { background: var(--purple); }
+
+/* ─── les flèches du sens de jeu ─── */
+.p2-sens {
+  position: absolute; inset: 0; pointer-events: none;
+  display: block;
+}
+.p2-sens i {
+  position: absolute; left: 50%; top: 50%;
+  width: 15px; height: 15px; margin: -7px 0 0 -7px;
+  background: rgba(255,255,255,.42);
+  clip-path: polygon(0 0, 100% 50%, 0 100%, 22% 50%);
+  transform:
+    rotate(calc(var(--i) * 45deg))
+    translateX(clamp(96px, 27vw, 168px))
+    rotate(90deg);
+  animation: sensPulse 2.6s ease-in-out infinite;
+  animation-delay: calc(var(--i) * -.32s);
+}
+.p2-sens.inverse i {
+  transform:
+    rotate(calc(var(--i) * -45deg))
+    translateX(clamp(96px, 27vw, 168px))
+    rotate(-90deg);
+}
+@keyframes sensPulse { 0%, 100% { opacity: .22; } 50% { opacity: .68; } }
 
 /* ─── la main, défilante ─── */
 .p2-main {
@@ -2319,7 +2316,7 @@ body.is-pad .plateau2d {
   position: relative; inset: auto; flex: 1; min-height: 0; background: radial-gradient(120% 90% at 50% 0%, #16202E, #070A10 70%); }
 body.is-pad .p2-sieges, body.is-pad .p2-centre { display: none; }
 body.is-pad .p2-main { flex: 1; align-items: center; }
-body.is-pad .c2 { --cw: clamp(64px, 12vh, 118px); }
+body.is-pad .c2 { --cw: clamp(88px, 30vh, 168px); }
 body.en-2d .myzone {
   background: linear-gradient(to top, rgba(4,6,11,.94) 60%, rgba(4,6,11,0));
   padding-top: 10px;

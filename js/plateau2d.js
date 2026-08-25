@@ -4,32 +4,42 @@
 // Même rôle que scene3d : on lui donne l'état, il montre. Les cartes sont ici
 // des éléments du document, ce qui les rend tactiles sans effort.
 
-import { COLOR_LABEL, isWild } from './deck.js?v=202608251228';
-
-const VALEUR = {
-  skip: '⊘', reverse: '⇅', draw2: '+2', wild: '★', wild4: '+4',
-  flip: '↻', draw5: '+5', skipAll: '⊗', wildDraw: '+', draw10: '+10',
-  discardAll: '⇊', reverseDraw4: '+4',
-};
+import { peindreFace, peindreDos } from './cardtex.js?v=202608251351';
 
 const $ = (id) => document.getElementById(id);
 
-/** Une carte, en deux dimensions. */
+/* Les cartes portent ici le même dessin qu'en volume : la toile est peinte
+   une fois, puis servie en image. Deux jeux de dessins pour une seule carte,
+   l'un pour le relief et l'autre pour le plat, finissaient par diverger. */
+const IMAGES = new Map();
+function image(color, value, pack, verso) {
+  const cle = verso ? `dos:${pack}:${value}` : `${color}:${value}:${pack}`;
+  let url = IMAGES.get(cle);
+  if (!url) {
+    const cv = verso ? peindreDos(pack, value) : peindreFace(color, value, pack);
+    url = cv.toDataURL('image/png');
+    IMAGES.set(cle, url);
+  }
+  return url;
+}
+
+/** Une carte, à plat. */
 export function carte2d(c, opts = {}) {
   const el = document.createElement('div');
-  el.className = 'c2 ' + (c ? c.color : 'dos');
-  if (opts.verso || !c) { el.classList.add('verso'); return el; }
+  el.className = 'c2';
+  const pack = opts.pack || 'classic';
+  if (opts.verso || !c) {
+    el.classList.add('verso');
+    el.style.backgroundImage = `url("${image(null, opts.side || 'light', pack, true)}")`;
+    return el;
+  }
   el.dataset.cardId = c.id;
-  const rond = document.createElement('span');
-  rond.className = 'c2-rond';
-  const txt = document.createElement('b');
-  txt.textContent = VALEUR[c.value] || c.value;
-  rond.appendChild(txt);
-  el.appendChild(rond);
-  const coin = document.createElement('i');
-  coin.textContent = VALEUR[c.value] || c.value;
-  el.appendChild(coin);
-  if (c.chosen) el.classList.add('choisi-' + c.chosen);
+  el.style.backgroundImage = `url("${image(c.color, c.value, pack)}")`;
+  if (c.chosen) {
+    const marque = document.createElement('i');
+    marque.className = 'c2-choix ' + c.chosen;
+    el.appendChild(marque);
+  }
   return el;
 }
 
@@ -47,8 +57,9 @@ export class Plateau2d {
     this.hote.innerHTML = `
       <div class="p2-sieges" id="p2-sieges"></div>
       <div class="p2-centre">
+        <span class="p2-sens" id="p2-sens" aria-hidden="true"></span>
         <button class="p2-pioche" id="p2-pioche" title="Piocher">
-          <span class="c2 verso"></span><em id="p2-reste"></em>
+          <span id="p2-dos"></span><em id="p2-reste"></em>
         </button>
         <div class="p2-defausse" id="p2-defausse"></div>
       </div>
@@ -99,16 +110,37 @@ export class Plateau2d {
   }
 
   _centre(state) {
+    const pack = state.pack || 'classic';
+    // le dos suit le paquet, et le côté en pack Flip
+    const dos = $('p2-dos');
+    const sigDos = pack + ':' + (state.side || 'light');
+    if (dos.dataset.sig !== sigDos) {
+      dos.dataset.sig = sigDos;
+      dos.innerHTML = '';
+      dos.appendChild(carte2d(null, { verso: true, pack, side: state.side }));
+    }
+    // les flèches disent dans quel sens on tourne
+    const sens = $('p2-sens');
+    sens.className = 'p2-sens' + (state.direction === -1 ? ' inverse' : '');
+    if (!sens.childElementCount) {
+      for (let i = 0; i < 8; i++) {
+        const f = document.createElement('i');
+        f.style.setProperty('--i', String(i));
+        sens.appendChild(f);
+      }
+    }
     $('p2-reste').textContent = state.deckCount;
     $('p2-pioche').classList.toggle('active',
       state.canDraw || (state.pendingDraw > 0 && state.turnId === state.you));
     const pile = $('p2-defausse');
-    const sig = state.top ? state.top.id + ':' + state.top.color + state.top.value + (state.top.chosen || '') : '';
+    const sig = state.top
+      ? [state.top.id, state.top.color, state.top.value, state.top.chosen || '', pack].join(':')
+      : '';
     if (pile.dataset.sig === sig) return;
     pile.dataset.sig = sig;
     pile.innerHTML = '';
     if (state.top) {
-      const el = carte2d(state.top);
+      const el = carte2d(state.top, { pack });
       el.classList.add('posee');
       pile.appendChild(el);
     }
@@ -118,17 +150,18 @@ export class Plateau2d {
   /** La main : défilante, chaque carte se touche. */
   _main(state) {
     const hote = $('p2-main');
+    const pack = state.pack || 'classic';
     const legaux = new Set(state.legal || []);
     const vus = new Set();
     const monTour = state.turnId === state.you && state.phase === 'playing';
 
     for (const c of state.hand) {
       vus.add(c.id);
-      const sig = `${c.color}:${c.value}:${c.chosen || ''}`;
+      const sig = `${c.color}:${c.value}:${c.chosen || ''}:${pack}`;
       let el = this.cartes.get(c.id);
       if (el && el.dataset.sig !== sig) { el.remove(); this.cartes.delete(c.id); el = null; }
       if (!el) {
-        el = carte2d(c);
+        el = carte2d(c, { pack });
         el.dataset.sig = sig;
         el.addEventListener('click', () => {
           if (this.etat && this.etat.eliminated) return;
