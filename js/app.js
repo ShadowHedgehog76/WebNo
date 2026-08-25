@@ -1,10 +1,10 @@
 // app.js — orchestration : accueil, salon, boucle hôte (moteur + IA), client
-import { UnoGame, DEFAULT_SETTINGS } from './engine.js?v=202608251217';
-import { botDecide, botJumpIn, botCallout, botDelay, botProfile } from './bot.js?v=202608251217';
-import { HostNet, ClientNet, normalizeCode, codeFromScan } from './net.js?v=202608251217';
-import { isWild } from './deck.js?v=202608251217';
-import * as ui from './ui.js?v=202608251217';
-import * as audio from './audio.js?v=202608251217';
+import { UnoGame, DEFAULT_SETTINGS } from './engine.js?v=202608251228';
+import { botDecide, botJumpIn, botCallout, botDelay, botProfile } from './bot.js?v=202608251228';
+import { HostNet, ClientNet, normalizeCode, codeFromScan } from './net.js?v=202608251228';
+import { isWild } from './deck.js?v=202608251228';
+import * as ui from './ui.js?v=202608251228';
+import * as audio from './audio.js?v=202608251228';
 
 const $ = (id) => document.getElementById(id);
 const BOT_NAMES = ['Léa', 'Max', 'Zoé', 'Nino', 'Iris', 'Sacha', 'Milo', 'Nora', 'Tao', 'Lila',
@@ -238,7 +238,15 @@ class Host {
   }
 
   start() {
+    // le bouton se grise déjà, mais rien n'interdit de l'appeler autrement
     const seats = this.roster().map((p) => ({ id: p.id, name: p.name, isBot: p.isBot, connected: true }));
+    const minimum = this.settings.mode === 'party' ? 2 : 2;
+    if (seats.length < minimum) {
+      ui.toast(this.settings.mode === 'party'
+        ? 'Le mode party attend au moins deux joueurs devant l\'écran.'
+        : 'Il faut au moins deux joueurs.', 'warn');
+      return;
+    }
     this.game = new UnoGame(seats, this.settings);
     this.game.startRound();
     this.unoSince.clear();

@@ -178,6 +178,54 @@ dit('Le paquet Flip');
   ok(sc.pack === 'flip', 'et le paquet en cours');
 }
 
+dit('Le repli en deux dimensions');
+{
+  // un téléphone : la scène en volume laisse la place au document
+  const f2 = document.createElement('iframe');
+  f2.width = 390; f2.height = 844; f2.src = '../index.html';
+  document.body.appendChild(f2);
+  await new Promise((r) => { f2.onload = r; });
+  const w2 = f2.contentWindow, d2 = f2.contentDocument;
+  w2.matchMedia = (m) => (/pointer: coarse|hover: none/.test(m)
+    ? { matches: true, addEventListener() {}, removeEventListener() {} }
+    : { matches: false, addEventListener() {}, removeEventListener() {} });
+  w2.Peer = class { constructor(i) { this._h = {}; setTimeout(() => (this._h.open || []).forEach((f) => f(i)), 0); }
+    on(e, f) { (this._h[e] = this._h[e] || []).push(f); } destroy() {} };
+  d2.getElementById('input-name').value = 'Tel';
+  d2.getElementById('btn-create').click();
+  await attends(220);
+  d2.getElementById('btn-fill-bots').click();
+  await attends(120);
+  d2.getElementById('btn-start').click();
+  await attends(700);
+  const sc2 = w2.__scene;
+  ok(sc2 && sc2.constructor.name === 'Plateau2d', 'le téléphone reçoit le plateau sans volume',
+     sc2 ? sc2.constructor.name : 'aucun');
+  ok(!d2.getElementById('plateau2d').hidden, 'qui est bien affiché');
+  ok(d2.getElementById('scene-wrap').hidden, 'et la toile en volume écartée');
+  // on impose une main et le tour : sans quoi rien n'est jouable si un bot
+  // a la main au moment du contrôle
+  const g2 = w2.__webno.host.game;
+  if (w2.__webno.host.pump) { clearInterval(w2.__webno.host.pump); w2.__webno.host.pump = null; }
+  g2.players[0].hand = [['red', '5'], ['blue', '9'], ['green', 'skip'], ['red', '2'],
+    ['yellow', '7'], ['wild', 'wild'], ['blue', '3']]
+    .map(([c, v], i) => ({ id: 't2-' + i, color: c, value: v }));
+  g2.discard = [{ id: 't2-top', color: 'red', value: '3' }];
+  g2.currentColor = 'red';
+  g2.turnIndex = 0;
+  w2.__webno.host.afterChange();
+  await attends(60);
+
+  const attendu = w2.__webno.view.hand.length;
+  ok(d2.querySelectorAll('#p2-main .c2').length === attendu,
+     `la main montre ses ${attendu} cartes`,
+     String(d2.querySelectorAll('#p2-main .c2').length));
+  ok(d2.querySelectorAll('#p2-sieges .p2-siege').length === 3, 'les trois adversaires sont là');
+  ok(d2.querySelector('#p2-defausse .c2'), 'la défausse montre sa carte');
+  ok(d2.querySelectorAll('#p2-main .c2.jouable').length > 0, 'les cartes jouables se distinguent');
+  f2.remove();
+}
+
 dit('Rien n\'a cassé');
 ok(erreurs.length === 0, 'aucune erreur JavaScript', erreurs.slice(0, 2).join(' | '));
 

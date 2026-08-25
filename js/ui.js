@@ -3,9 +3,9 @@ import {
   COLOR_LABEL, isWild, colorsOf, cardCatalog,
   PACKS, packById, MODES, MODE_GROUPS, modesOf, folderOf, modeById, modeId,
   WIN_OPTIONS, winById, winId, BOT_LEVELS, botById,
-} from './deck.js?v=202608251217';
-import { PARTY_CARDS, partyById } from './party.js?v=202608251217';
-import { qrSvg } from './qr.js?v=202608251217';
+} from './deck.js?v=202608251228';
+import { PARTY_CARDS, partyById } from './party.js?v=202608251228';
+import { qrSvg } from './qr.js?v=202608251228';
 
 /** Lien d'invitation d'une room. */
 export function joinUrl(code) {
@@ -257,7 +257,16 @@ export function renderLobby({ code, players, settings, isHost, maxPlayers = 4 },
   const start = $('btn-start');
   if (start) {
     let ok, why = '';
-    if (team) {
+    if (party) {
+      // l'hôte n'est que l'écran : il faut deux joueurs devant lui
+      const assis = players.filter((p) => !p.isHost).length;
+      ok = assis >= 2;
+      if (!ok) {
+        why = assis === 0
+          ? 'Le mode party attend au moins deux joueurs — votre écran est la table.'
+          : 'Encore un joueur : le mode party en demande deux au minimum.';
+      }
+    } else if (team) {
       ok = players.length === maxPlayers;
       if (!ok) why = `Le mode ${settings.teamSize} contre ${settings.teamSize} exige ${maxPlayers} joueurs (ajoutez des bots).`;
     } else {
@@ -510,34 +519,63 @@ let scene = null;
 let sceneHandlers = null;
 
 /** Installe la scène ; renvoie faux si la machine ne fait pas de 3D. */
+/** Un appareil tactile étroit : la 3D y coûte cher et les doigts préfèrent le document. */
+function petitEcran() {
+  try {
+    return window.matchMedia('(pointer: coarse)').matches
+      && Math.min(window.innerWidth, window.innerHeight) <= 820;
+  } catch (_) { return false; }
+}
+
 export async function monterPlateau(handlers) {
   sceneHandlers = handlers;
   const cv = $('scene3d');
   if (!cv) return false;
-  try {
-    const { Plateau } = await import('./scene3d.js');
-    scene = new Plateau(cv);
-    if (!scene.demarrer()) { scene = null; throw new Error('WebGL indisponible'); }
-    scene.brancherEntrees();
-    window.__scene = scene;                     // pour les contrôles automatisés
-    // on rattrape l'état arrivé pendant le chargement
-    if (dernierEtat) scene.appliquer(dernierEtat);
-    scene.surCarte = (card) => handlers.onCardClick && handlers.onCardClick(card);
-    scene.surPioche = () => handlers.onDraw && handlers.onDraw();
-    window.addEventListener('resize', () => scene && scene.redimensionner());
-    $('no3d').hidden = true;
-    return true;
-  } catch (e) {
-    $('no3d').hidden = false;
-    document.body.classList.add('sans-3d');
-    return false;
+
+  // Les téléphones passent d'office au plateau en deux dimensions : leurs
+  // cartes se touchent mieux, et rien ne leur demande de faire tourner une
+  // scène en volume.
+  if (!petitEcran()) {
+    try {
+      const { Plateau } = await import('./scene3d.js');
+      scene = new Plateau(cv);
+      if (!scene.demarrer()) { scene = null; throw new Error('WebGL indisponible'); }
+      scene.brancherEntrees();
+      window.__scene = scene;                   // pour les contrôles automatisés
+      if (dernierEtat) scene.appliquer(dernierEtat);
+      scene.surCarte = (card) => handlers.onCardClick && handlers.onCardClick(card);
+      scene.surPioche = () => handlers.onDraw && handlers.onDraw();
+      window.addEventListener('resize', () => scene && scene.redimensionner());
+      $('no3d').hidden = true;
+      document.body.classList.remove('en-2d');
+      return true;
+    } catch (_) { scene = null; }
   }
+  return monterPlateau2d(handlers);
+}
+
+/** Le repli : même plateau, sans volume. */
+async function monterPlateau2d(handlers) {
+  const hote = $('plateau2d');
+  if (!hote) return false;
+  const { Plateau2d } = await import('./plateau2d.js');
+  scene = new Plateau2d(hote);
+  scene.demarrer();
+  scene.surCarte = (card) => handlers.onCardClick && handlers.onCardClick(card);
+  scene.surPioche = () => handlers.onDraw && handlers.onDraw();
+  window.__scene = scene;
+  hote.hidden = false;
+  $('scene-wrap').hidden = true;
+  $('no3d').hidden = true;
+  document.body.classList.add('en-2d');
+  if (dernierEtat) scene.appliquer(dernierEtat);
+  return true;
 }
 
 let dernierEtat = null;
 /** Mesure la place que prennent la barre du haut et les commandes du bas. */
 function reserveInterface() {
-  if (!scene) return;
+  if (!scene || !scene.reserve) return;
   const cv = $('scene3d');
   if (!cv) return;
   const cadre = cv.getBoundingClientRect();
@@ -547,11 +585,26 @@ function reserveInterface() {
   scene.reserve(Math.round(hh + 6), Math.round(Math.min(hb, cadre.height * 0.42) + 6));
 }
 
+/**
+ * En manette, le plateau se glisse dans le corps de la manette, entre son
+ * en-tête et ses boutons : posé par-dessus, il les recouvrait.
+ */
+function rangePlateau2d(state) {
+  const hote = $('plateau2d');
+  const pad = $('pad');
+  if (!hote || !pad || hote.hidden) return;
+  const manette = !!(state.party && !state.spectator);
+  const dedans = hote.parentElement === pad;
+  if (manette && !dedans) pad.insertBefore(hote, $('pad-actions') || null);
+  else if (!manette && dedans) document.body.appendChild(hote);
+}
+
 function plateau3d(state, handlers) {
   sceneHandlers = handlers;
   dernierEtat = state;
   // la scène se charge en différé : les premiers états arrivent avant elle
   if (!scene) return;
+  rangePlateau2d(state);
   scene.appliquer(state);
   reserveInterface();
 }

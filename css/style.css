@@ -2184,3 +2184,144 @@ body.is-pad .pad-top, body.is-pad .pad-actions { pointer-events: auto; }
 :root { --zone-h: 172px; }
 .hand { display: none; }
 .myzone .actions { margin-top: 0; }
+
+/* ══════════════════════ le plateau sans volume ══════════════════════
+   Pour les téléphones et la manette : les mêmes éléments, en éléments du
+   document, où le doigt trouve ce qu'il vise du premier coup.        */
+.plateau2d {
+  /* les commandes flottent en bas : le plateau s'arrête juste au-dessus */
+  position: absolute; inset: 46px 0 var(--zone-h, 172px) 0; z-index: 4;
+  display: flex; flex-direction: column;
+  background: radial-gradient(120% 76% at 50% 34%, var(--felt-1), var(--felt-3) 72%, #06110C);
+}
+.plateau2d[hidden] { display: none; }
+body.en-2d .scene-wrap { display: none; }
+
+/* ─── les adversaires, en bandeau ─── */
+.p2-sieges {
+  display: flex; gap: 8px; padding: 8px 10px; overflow-x: auto;
+  scrollbar-width: none; flex: none;
+}
+.p2-sieges::-webkit-scrollbar { display: none; }
+.p2-siege {
+  display: flex; align-items: center; gap: 7px; flex: none;
+  padding: 6px 11px 6px 6px; border-radius: 12px;
+  background: rgba(6,10,16,.62); border: 1.5px solid transparent;
+}
+.p2-siege.actif { border-color: var(--gold); background: rgba(40,34,8,.78); }
+.p2-siege.sorti { opacity: .55; border-color: rgba(237,28,36,.5); }
+.p2-av {
+  width: 26px; height: 26px; border-radius: 8px; flex: none; font-style: normal;
+  display: grid; place-items: center; font-family: var(--display); font-size: 13px;
+  color: #fff; border: 1.5px solid rgba(255,255,255,.45);
+}
+.p2-av.a0 { background: var(--red); } .p2-av.a1 { background: var(--blue); }
+.p2-av.a2 { background: var(--green); } .p2-av.a3 { background: var(--yellow); color: #2E2400; }
+.p2-siege b { font-size: 13px; font-weight: 650; max-width: 9ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.p2-n {
+  font-family: var(--display); font-style: italic; font-size: 15px; color: var(--gold);
+  background: rgba(0,0,0,.4); border-radius: 7px; padding: 1px 7px;
+}
+.p2-siege u {
+  text-decoration: none; font-size: 9.5px; font-weight: 800; letter-spacing: .08em;
+  text-transform: uppercase; color: #FF8078;
+}
+.p2-siege u.uno { color: var(--gold); }
+
+/* ─── la pioche et la défausse ─── */
+.p2-centre {
+  flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center;
+  gap: clamp(20px, 7vw, 54px);
+}
+.p2-pioche {
+  position: relative; cursor: pointer; background: none; border: 0; padding: 0;
+  transition: transform .16s var(--ease);
+}
+.p2-pioche.active { animation: pulse 1.5s ease-in-out infinite; }
+.p2-pioche:active { transform: scale(.95); }
+.p2-pioche em {
+  position: absolute; left: 50%; bottom: -20px; translate: -50% 0;
+  font-style: normal; font-size: 11px; color: var(--muted);
+}
+.p2-defausse { position: relative; }
+.p2-defausse::after {
+  content: ''; position: absolute; inset: -12px; border-radius: 18px; z-index: -1;
+  background: radial-gradient(closest-side, var(--teinte, transparent), transparent 72%);
+  opacity: .55;
+}
+
+/* ─── la carte, sans relief ─── */
+.c2 {
+  --cw: clamp(58px, 15vw, 96px);
+  width: var(--cw); height: calc(var(--cw) * 1.5);
+  border-radius: calc(var(--cw) * .11); position: relative; flex: none;
+  background: linear-gradient(150deg, #fff, #E8ECF5);
+  box-shadow: 0 5px 14px rgba(0,0,0,.45);
+  display: grid; place-items: center; cursor: pointer;
+  transition: transform .18s var(--ease), filter .18s, opacity .18s;
+}
+.c2::before {
+  content: ''; position: absolute; inset: 7%; border-radius: calc(var(--cw) * .07);
+  background: var(--teinte-carte, #999);
+}
+.c2.red { --teinte-carte: linear-gradient(150deg, #FF5B52, #ED1C24 55%, #8E0F14); }
+.c2.yellow { --teinte-carte: linear-gradient(150deg, #FFE95C, #FFC900 55%, #B08A00); }
+.c2.green { --teinte-carte: linear-gradient(150deg, #2ED47B, #00A651 55%, #00693A); }
+.c2.blue { --teinte-carte: linear-gradient(150deg, #3D9BE8, #0071CE 55%, #004A81); }
+.c2.pink { --teinte-carte: linear-gradient(150deg, #FF6FB5, #E82A7C 55%, #8E0A4C); }
+.c2.teal { --teinte-carte: linear-gradient(150deg, #3FD8D4, #00A8A2 55%, #046B69); }
+.c2.orange { --teinte-carte: linear-gradient(150deg, #FFA24D, #F57C00 55%, #9C4A00); }
+.c2.purple { --teinte-carte: linear-gradient(150deg, #A87BD4, #7B2FBE 55%, #4A2C6B); }
+.c2.wild { --teinte-carte: conic-gradient(#ED1C24 0 25%, #FFC900 0 50%, #00A651 0 75%, #0071CE 0); }
+.c2-rond {
+  position: relative; width: 74%; height: 62%; border-radius: 50%;
+  background: #fff; display: grid; place-items: center;
+  rotate: -20deg; box-shadow: 0 2px 6px rgba(0,0,0,.2);
+}
+.c2-rond b {
+  rotate: 20deg; font-family: var(--display); font-style: italic;
+  font-size: calc(var(--cw) * .44); color: #17171D; line-height: 1;
+}
+.c2.red .c2-rond b { color: #ED1C24; } .c2.yellow .c2-rond b { color: #B08A00; }
+.c2.green .c2-rond b { color: #00A651; } .c2.blue .c2-rond b { color: #0071CE; }
+.c2.purple .c2-rond b { color: #7B2FBE; } .c2.teal .c2-rond b { color: #00A8A2; }
+.c2.pink .c2-rond b { color: #E82A7C; } .c2.orange .c2-rond b { color: #F57C00; }
+.c2 > i {
+  position: absolute; top: 4%; left: 7%; font-style: normal; font-weight: 900;
+  font-size: calc(var(--cw) * .17); color: #fff; text-shadow: 0 1px 2px rgba(0,0,0,.5);
+}
+.c2.verso { background: linear-gradient(150deg, #2A2C34, #08080C); }
+.c2.verso::before {
+  inset: 22% 12%; border-radius: 50%; rotate: -20deg;
+  background: linear-gradient(170deg, #FF5B52, var(--red));
+}
+.cote-sombre .c2.verso::before { background: linear-gradient(170deg, #A87BD4, var(--purple)); }
+.c2.posee { rotate: -4deg; }
+.c2.eteinte { filter: grayscale(.5) brightness(.62); opacity: .5; }
+.c2.jouable { box-shadow: 0 5px 16px rgba(0,0,0,.5), 0 0 0 2px rgba(255,255,255,.75); }
+.c2.choisie { transform: translateY(-14px); }
+
+/* ─── la main, défilante ─── */
+.p2-main {
+  flex: none; display: flex; gap: 6px; align-items: flex-end;
+  padding: 10px 12px calc(14px + env(safe-area-inset-bottom));
+  overflow-x: auto; overflow-y: hidden;
+  scroll-snap-type: x proximity; scrollbar-width: none;
+  background: linear-gradient(to top, rgba(4,6,11,.9), rgba(4,6,11,0));
+}
+.p2-main::-webkit-scrollbar { display: none; }
+.p2-main .c2 { scroll-snap-align: center; }
+.p2-main .c2:active { transform: translateY(-10px); }
+
+/* en manette, seules les cartes comptent : la table s'efface */
+/* dans la manette, le plateau prend simplement la place qui reste */
+body.is-pad .plateau2d {
+  position: relative; inset: auto; flex: 1; min-height: 0; background: radial-gradient(120% 90% at 50% 0%, #16202E, #070A10 70%); }
+body.is-pad .p2-sieges, body.is-pad .p2-centre { display: none; }
+body.is-pad .p2-main { flex: 1; align-items: center; }
+body.is-pad .c2 { --cw: clamp(64px, 12vh, 118px); }
+body.en-2d .myzone {
+  background: linear-gradient(to top, rgba(4,6,11,.94) 60%, rgba(4,6,11,0));
+  padding-top: 10px;
+}
+body.is-pad { --zone-h: 96px; }
