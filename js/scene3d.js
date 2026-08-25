@@ -4,7 +4,7 @@
 // pilotée par l'état que l'hôte diffuse ; elle ne décide de rien, elle montre.
 
 import * as T from './vendor/three.module.min.js';
-import { peindreFace, peindreDos } from './cardtex.js?v=202608241841';
+import { peindreFace, peindreDos } from './cardtex.js?v=202608251207';
 
 /* ─────────────── réglages ─────────────── */
 const CARTE = { l: 1, h: 1.5, e: 0.014 };     // largeur, hauteur, épaisseur
@@ -826,6 +826,7 @@ export class Plateau {
         'rotation.x': p.rx, 'rotation.y': 0, 'rotation.z': p.rz,
       };
       m.userData.repos = { ...cible };
+      m.renderOrder = i;                       // la suivante passe devant
       m.userData.jouable = jouables.includes ? jouables.includes(c.id) : jouables.has(c.id);
       // Une carte injouable s'éteint. On l'assombrit plutôt que de la rendre
       // translucide : la transparence laisserait voir le tapis au travers et
@@ -857,12 +858,14 @@ export class Plateau {
     const centre = total > 1 ? (i - (total - 1) / 2) / ((total - 1) / 2 || 1) : 0;
     return {
       x,
-      // l'escalier : chaque carte se pose un cran au-dessus de la précédente,
-      // assez pour qu'on lise celle du dessous
-      y: 0.56 + i * 0.052,
-      z: MAIN_Z - i * 0.030,
+      // Les cartes restent sur la même ligne : chacune se glisse derrière sa
+      // voisine, sans jamais quitter l'horizontale. Le décalage en hauteur
+      // est infime, juste de quoi éviter que deux faces se disputent le même
+      // plan.
+      y: 0.62 + i * 0.004,
+      z: MAIN_Z - i * 0.022,
       rx: 0.80,
-      rz: -centre * 0.15,
+      rz: -centre * 0.13,
     };
   }
 

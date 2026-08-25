@@ -78,6 +78,10 @@ dit('Ma main');
   ok(mains.every((m) => m.rotation.x > 0), 'inclinées face à la caméra');
   const xs = mains.map((m) => m.position.x);
   ok(new Set(xs.map((v) => v.toFixed(2))).size === 4, 'étalées en éventail, sans se superposer');
+  const ys = mains.map((m) => m.position.y);
+  ok(Math.max(...ys) - Math.min(...ys) < 0.05,
+     'alignées sur l\'horizontale, pas en diagonale',
+     (Math.max(...ys) - Math.min(...ys)).toFixed(3));
   const eteintes = mains.filter((m) => m.material[2].color.getHex() !== 0xFFFFFF);
   ok(eteintes.length === 2, 'les deux cartes injouables sont éteintes', String(eteintes.length));
 }
