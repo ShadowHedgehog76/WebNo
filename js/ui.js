@@ -3,9 +3,9 @@ import {
   COLOR_LABEL, isWild, colorsOf, cardCatalog,
   PACKS, packById, MODES, MODE_GROUPS, modesOf, folderOf, modeById, modeId,
   WIN_OPTIONS, winById, winId, BOT_LEVELS, botById,
-} from './deck.js?v=202608251207';
-import { PARTY_CARDS, partyById } from './party.js?v=202608251207';
-import { qrSvg } from './qr.js?v=202608251207';
+} from './deck.js?v=202608251217';
+import { PARTY_CARDS, partyById } from './party.js?v=202608251217';
+import { qrSvg } from './qr.js?v=202608251217';
 
 /** Lien d'invitation d'une room. */
 export function joinUrl(code) {

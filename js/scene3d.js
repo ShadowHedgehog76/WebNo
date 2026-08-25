@@ -4,7 +4,7 @@
 // pilotée par l'état que l'hôte diffuse ; elle ne décide de rien, elle montre.
 
 import * as T from './vendor/three.module.min.js';
-import { peindreFace, peindreDos } from './cardtex.js?v=202608251207';
+import { peindreFace, peindreDos } from './cardtex.js?v=202608251217';
 
 /* ─────────────── réglages ─────────────── */
 const CARTE = { l: 1, h: 1.5, e: 0.014 };     // largeur, hauteur, épaisseur
@@ -940,9 +940,12 @@ export class Plateau {
       m.scale.setScalar(0.66);
       anime(m, {
         'position.x': x,
-        'position.y': 0.26 + i * 0.016,          // le même escalier, en face
-        'position.z': -0.06 - i * 0.008,
-        'rotation.x': 1.05, 'rotation.z': -centre * 0.20,
+        // Redressée, une carte descend d'autant plus bas que son inclinaison
+        // est forte : il faut la tenir assez haut pour qu'elle ne traverse
+        // pas le feutre.
+        'position.y': 0.52 + i * 0.004,
+        'position.z': -0.06 - i * 0.020,
+        'rotation.x': 0.92, 'rotation.z': -centre * 0.16,
       }, 240, 'doux');
     });
   }
@@ -1084,11 +1087,12 @@ export class Plateau {
     if (m.userData.jouable === false) {
       m.material.forEach((mm) => mm.color && mm.color.setHex(oui ? 0xB6BCC8 : 0x7C8290));
     }
+    // elle se soulève, sans tourner : faire pivoter la carte au survol
+    // donnait l'impression qu'elle se dérobait
     anime(m, {
-      'position.y': r['position.y'] + (oui ? 0.42 : 0),
-      'position.z': r['position.z'] - (oui ? 0.30 : 0),
-      'rotation.x': r['rotation.x'] + (oui ? 0.30 : 0),
-    }, 180, 'doux');
+      'position.y': r['position.y'] + (oui ? 0.46 : 0),
+      'position.z': r['position.z'] - (oui ? 0.16 : 0),
+    }, 170, 'doux');
   }
 
   /* ═══════════════ effets ═══════════════ */

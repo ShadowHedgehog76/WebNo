@@ -86,6 +86,33 @@ dit('Ma main');
   ok(eteintes.length === 2, 'les deux cartes injouables sont éteintes', String(eteintes.length));
 }
 
+dit('Le survol et la tenue des cartes');
+{
+  const m = [...sc.cartes.values()][2];
+  const rotAvant = { x: m.rotation.x, y: m.rotation.y, z: m.rotation.z };
+  const yAvant = m.position.y;
+  sc._souleve(m, true);
+  sc.finirAnimations();
+  ok(m.position.y > yAvant + 0.2, 'la carte survolée se soulève',
+     `${yAvant.toFixed(2)} → ${m.position.y.toFixed(2)}`);
+  ok(Math.abs(m.rotation.x - rotAvant.x) < 0.001
+     && Math.abs(m.rotation.z - rotAvant.z) < 0.001, 'et ne pivote pas');
+  sc._souleve(m, false);
+  sc.finirAnimations();
+  ok(Math.abs(m.position.y - yAvant) < 0.01, 'elle retrouve sa place ensuite');
+
+  // aucune carte ne doit s'enfoncer dans le feutre
+  let sous = 0;
+  for (const d0 of sc.dossiers.values()) {
+    for (const c of d0.cartes) {
+      const p = c.getWorldPosition(new (c.position.constructor)());
+      const bas = p.y - Math.sin(c.rotation.x) * 0.75 * (c.scale.x || 1);
+      if (bas < 0) sous++;
+    }
+  }
+  ok(sous === 0, 'aucune carte d\'adversaire ne traverse la table', `${sous} carte(s)`);
+}
+
 dit('Poser une carte');
 {
   const avant = sc.defausse.children.length;
